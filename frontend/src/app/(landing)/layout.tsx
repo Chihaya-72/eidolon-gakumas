@@ -2,13 +2,16 @@ import "../globals.css";
 import "./landing.css";
 import "./welcome/welcome.css";
 
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { headers } from "next/headers";
 
 import { copy } from "@/i18n";
 
 import { TIER_SCRIPT } from "./tierScript";
+
+/** 页面铺到 iPhone 的刘海和底部横条下面，上下不留一条底色。 */
+export const viewport: Viewport = { viewportFit: "cover" };
 
 /**
  * 标题、描述和分享卡片（Open Graph、Twitter 卡片）。卡片的图是同目录下的 opengraph-image.jpg

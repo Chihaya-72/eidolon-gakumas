@@ -548,6 +548,7 @@ export const zh = {
      */
     welcome: {
       intro: {
+        title: "Eidolon-Gakumas",
         kicker: "初星学園　プロデューサー科",
         body: "以初星学园制作人的身份，和偶像打字聊天，或者直接打电话。她们用日语原声回答，附中文字幕；记得自己在原作里经历过的事，也记得你说过的话。",
         features: [
