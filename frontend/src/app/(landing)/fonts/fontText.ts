@@ -81,6 +81,19 @@ export function landingText(): string {
   ]);
 }
 
+/** 欢迎页里排成日文的字：每个对象里 `ja` 键的值（偶像的日文名、她们的台词），和标了 lang="ja" 的几句。 */
+function welcomeJapanese(): string[] {
+  const { welcome } = copy.landing;
+  const ja = (node: unknown): string[] => {
+    if (Array.isArray(node)) return node.flatMap(ja);
+    if (node && typeof node === "object") {
+      return Object.entries(node).flatMap(([key, value]) => (key === "ja" && typeof value === "string" ? [value] : ja(value)));
+    }
+    return [];
+  };
+  return [...ja(welcome), welcome.intro.kicker, welcome.stage.welcome, welcome.entry.kicker, copy.app.name];
+}
+
 /** 用 Shippori Mincho B1 排的：偶像的名字、组合名（没有组合的那一段的「283プロ」也排在组合名的位置）、招呼的日语原文、
  * 幕名和幕名轨，以及第 3、4、5 幕里她们说的日语（第 4 幕是开场白，第 5 幕是气泡里的原文）。 */
 export function japaneseText(): string {
@@ -95,14 +108,24 @@ export function japaneseText(): string {
     ...act3.lines.map((l) => l.ja),
     ...callOpenerJapanese(),
     ...act5.lines.map((l) => l.ja),
+    ...welcomeJapanese(),
   ]);
 }
 
 /**
- * 第 0 幕（首屏）上的字：标题、副标题、首屏声明和右上角的仓库链接、入口（Landing.tsx）。这几个字另做一份很小的子集，
+ * 第 0 幕（首屏，现在是欢迎页的介绍页）上的字：标题、副标题、介绍、偶像的日文名、首屏声明和右上角的仓库链接、入口。这几个字另做一份很小的子集，
  * 只预载它：完整子集一起预载会和首屏的 CSS 抢带宽，手机 4G 下首屏晚 0.5 秒。第 0 幕的文案改了而没有
  * 重新生成时，那几个字会从完整子集里取，字体对、只是晚一点到，覆盖契约测试同样会拦。
  */
 export function act0Text(): string {
-  return unique([copy.app.name, copy.app.description, copy.landing.disclaimer, copy.app.repositoryLabel, copy.landing.signIn, copy.landing.continue]);
+  return unique([
+    copy.app.name,
+    copy.app.description,
+    copy.landing.disclaimer,
+    copy.app.repositoryLabel,
+    copy.landing.signIn,
+    copy.landing.continue,
+    ...strings(copy.landing.welcome.intro),
+    ...Object.values(copy.landing.welcome.idols).map((idol) => idol.ja),
+  ]);
 }
