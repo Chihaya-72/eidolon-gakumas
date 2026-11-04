@@ -4,11 +4,33 @@
  *
  * 五页：.wl-intro（纸白）→ .wl-stage（纸白、印象色的箭头、她的颜色）→ .wl-call（她的颜色、iPhone）
  * → .wl-memory（夜空）→ .wl-entry（黎明）。舞台的进度由 Stage.tsx 写成 CSS 变量（--wl-logo 等）。
+ * 外层 .wl-pager 负责翻页；<html> 的底色由 edge.ts 跟着当前页换。
  */
 
-html:has(.wl-root),
+html:has(.wl-root) {
+  background: #f6f7fb;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
 html:has(.wl-root) body {
-  background: #f5f6fa;
+  background: transparent;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* 翻页：一次滑动只翻一页（scroll-snap-stop）；页内的内容比屏幕长时在 .wl-page 里滚，滚到头再滑一次才翻页。 */
+.wl-pager {
+  position: fixed;
+  inset: 0;
+  overflow: hidden auto;
+  scroll-snap-type: y mandatory;
+  outline: none;
+}
+.wl-page {
+  height: 100%;
+  overflow: hidden auto;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }
 
 .wl-root {
@@ -69,8 +91,8 @@ html:has(.wl-root) body {
 .wl-top {
   position: fixed;
   z-index: 50;
-  top: 14px;
-  right: 14px;
+  top: calc(14px + env(safe-area-inset-top));
+  right: calc(14px + env(safe-area-inset-right));
   display: flex;
   gap: 4px;
   padding: 4px;
@@ -88,10 +110,10 @@ html:has(.wl-root) body {
 
 .wl-intro {
   position: relative;
-  min-height: 100svh;
+  min-height: 100%;
   display: flex;
   align-items: center;
-  padding: 104px var(--wl-gutter) 132px;
+  padding: calc(104px + env(safe-area-inset-top)) var(--wl-gutter) calc(132px + env(safe-area-inset-bottom));
   overflow: hidden;
   background:
     linear-gradient(rgb(22 23 28 / 0.045) 1px, transparent 1px) 0 0 / 100% 34px,
@@ -118,7 +140,7 @@ html:has(.wl-root) body {
 .wl-intro-title {
   margin: 0;
   font-family: var(--wl-ja);
-  font-size: clamp(52px, 10vw, 136px);
+  font-size: clamp(34px, 9.4vw, 136px);
   font-weight: 600;
   line-height: 0.95;
   letter-spacing: -0.015em;
@@ -270,7 +292,7 @@ html:has(.wl-root) body {
 @media (max-width: 639px) {
   .wl-intro {
     align-items: flex-start;
-    padding-top: 92px;
+    padding-top: calc(92px + env(safe-area-inset-top));
   }
   .wl-features {
     gap: 8px;
@@ -293,7 +315,7 @@ html:has(.wl-root) body {
     gap: 4px 12px;
   }
   .wl-disclaimer {
-    bottom: 76px;
+    bottom: 92px;
   }
 }
 
@@ -301,19 +323,40 @@ html:has(.wl-root) body {
 
 .wl-stage-wrap {
   position: relative;
-  height: 560svh;
+  height: 200%;
 }
 .wl-stage-wrap[data-reduced] {
-  height: 100svh;
+  height: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+/* 舞台的两个停靠点：logo 和她的话，各占一屏高。 */
+.wl-stage-stop {
+  position: absolute;
+  left: 0;
+  width: 1px;
+  height: 50%;
+  pointer-events: none;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+.wl-stage-stop:nth-child(1) {
+  top: 0;
+}
+.wl-stage-stop:nth-child(2) {
+  top: 50%;
 }
 .wl-stage {
   --wl-logo-w: min(60vw, 40svh, 400px);
   --wl-logo-top: calc(40% - var(--wl-logo-w) * 0.461);
   position: sticky;
   top: 0;
-  height: 100svh;
+  height: 50%;
   overflow: hidden;
   isolation: isolate;
+}
+.wl-stage-wrap[data-reduced] .wl-stage {
+  height: 100%;
 }
 /* 舞台的底：纸白，logo 周围一圈圈细线和点阵，上下两条细线标着学园名，几颗印象色的小星星。 */
 .wl-backdrop {
@@ -624,13 +667,13 @@ html:has(.wl-root) body {
 
 .wl-call {
   position: relative;
-  min-height: 100svh;
+  min-height: 100%;
   display: grid;
   grid-template-columns: minmax(0, 520px) auto;
   justify-content: center;
   align-items: center;
   gap: clamp(40px, 9vw, 150px);
-  padding: 104px var(--wl-gutter) 72px;
+  padding: calc(104px + env(safe-area-inset-top)) var(--wl-gutter) calc(72px + env(safe-area-inset-bottom));
   color: var(--her-ink);
   background:
     radial-gradient(60% 55% at 72% 50%, color-mix(in srgb, var(--her-soft) 80%, transparent), transparent 70%),
@@ -1082,7 +1125,7 @@ html:has(.wl-root) body {
     grid-template-columns: minmax(0, 1fr);
     justify-items: center;
     gap: 28px;
-    padding-top: 88px;
+    padding-top: calc(88px + env(safe-area-inset-top));
   }
   .wl-call-copy {
     justify-self: stretch;
@@ -1093,9 +1136,14 @@ html:has(.wl-root) body {
   .wl-iphone {
     --w: min(300px, 72vw, calc(62svh * 0.479));
   }
+  /* 手机上这一页刚好一屏，滑一次就翻页；渐变收回她的颜色，和 Safari 工具栏后面的底色接上，不留一道缝。 */
   .wl-call {
     gap: 18px;
-    padding-top: 80px;
+    padding-top: calc(80px + env(safe-area-inset-top));
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
+    background:
+      radial-gradient(60% 55% at 72% 50%, color-mix(in srgb, var(--her-soft) 80%, transparent), transparent 70%),
+      linear-gradient(180deg, var(--her) 0%, var(--her) 22%, var(--her-deep) 72%, var(--her) 100%);
   }
   .wl-call .wl-body {
     font-size: 14px;
@@ -1110,12 +1158,12 @@ html:has(.wl-root) body {
 
 .wl-memory {
   position: relative;
-  min-height: 100svh;
+  min-height: 100%;
   display: grid;
   grid-template-columns: minmax(0, 0.85fr) minmax(0, 1fr);
   align-items: center;
   gap: 5vw;
-  padding: 104px var(--wl-gutter) 80px;
+  padding: calc(104px + env(safe-area-inset-top)) var(--wl-gutter) calc(80px + env(safe-area-inset-bottom));
   color: #fff;
   background:
     radial-gradient(1px 1px at 12% 18%, rgb(255 255 255 / 0.7), transparent),
@@ -1341,7 +1389,7 @@ html:has(.wl-root) body {
   .wl-memory {
     grid-template-columns: minmax(0, 1fr);
     gap: 24px;
-    padding-top: 88px;
+    padding-top: calc(88px + env(safe-area-inset-top));
   }
   .wl-memory .wl-title {
     font-size: clamp(24px, 6.6vw, 34px);
@@ -1404,11 +1452,11 @@ html:has(.wl-root) body {
 
 .wl-entry {
   position: relative;
-  min-height: 100svh;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 112px 20px 36px;
+  padding: calc(112px + env(safe-area-inset-top)) 20px calc(36px + env(safe-area-inset-bottom));
   color: #fff;
   overflow: hidden;
   background:

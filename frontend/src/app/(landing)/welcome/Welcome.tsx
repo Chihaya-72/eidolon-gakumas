@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 import { LandingEntry } from "../LandingEntry";
+import { EDGE, syncEdge } from "./edge";
 import { Stage } from "./Stage";
 import type { StageCopy } from "./Chatter";
 import type { WelcomeIdol } from "./idols";
 import { MemoryWeb, type MemoryCopy } from "./MemoryWeb";
 import { PhoneCall, type CallCopy } from "./PhoneCall";
+import { usePaging } from "./usePaging";
 import { useReducedMotion } from "./useReducedMotion";
 
 export type WelcomeCopy = {
@@ -45,6 +47,9 @@ export type WelcomeProps = {
  * 欢迎页：五页往上滑。① 介绍；② 天空里的 logo，七支印象色的箭头往上冲，跑得最快的那位的颜色铺满屏幕、她一句接一句地找你；
  * ③ 她打来电话（iPhone，液态玻璃）；④ 她记住的事在偶像之间传开；⑤ 入口。
  *
+ * 外层 .wl-pager 是翻页的滚动容器：一次滑动只翻一页。每页 .wl-page 自己能滚，内容比屏幕长时先在页内随意滑，
+ * 滑到头以后再滑一次才翻页。舞台占两页的位置（logo、她的话），见 Stage.tsx。
+ *
  * 今天先来找你的是哪一位，在浏览器里随机挑（服务端和第一次渲染都是第一位，挂载后再换，避免水合不一致）。
  */
 export function Welcome(props: WelcomeProps) {
@@ -57,6 +62,22 @@ export function Welcome(props: WelcomeProps) {
   }, [idols.length]);
 
   const her = idols[chosen];
+  const pagerRef = useRef<HTMLElement>(null);
+  usePaging(pagerRef, reduced);
+
+  useEffect(() => {
+    const pager = pagerRef.current;
+    if (!pager) return;
+    // 键盘的空格、上下键要落在翻页容器上，页面本身不滚。
+    pager.focus({ preventScroll: true });
+    const sync = () => syncEdge(pager);
+    sync();
+    pager.addEventListener("scroll", sync, { passive: true });
+    return () => {
+      pager.removeEventListener("scroll", sync);
+      document.documentElement.style.removeProperty("background-color");
+    };
+  }, [her.color]);
 
   return (
     <div className="wl-root">
@@ -67,12 +88,20 @@ export function Welcome(props: WelcomeProps) {
         <LandingEntry isSignedIn={props.isSignedIn} label={props.entryLabel} className={props.entryClassName.header} />
       </header>
 
-      <main>
-        <Intro {...props} />
+      <main ref={pagerRef} className="wl-pager" tabIndex={-1}>
+        <div className="wl-page" data-edge={EDGE.paper}>
+          <Intro {...props} />
+        </div>
         <Stage idols={idols} chosen={chosen} copy={copy.stage} reduced={reduced} logoSrc={props.logoSrc} />
-        <PhoneCall idol={her} copy={copy.call} reduced={reduced} />
-        <MemoryWeb idols={idols} chosen={chosen} copy={copy.memory} reduced={reduced} />
-        <Entry {...props} />
+        <div className="wl-page" data-edge={her.color}>
+          <PhoneCall idol={her} copy={copy.call} reduced={reduced} />
+        </div>
+        <div className="wl-page" data-edge={EDGE.night}>
+          <MemoryWeb idols={idols} chosen={chosen} copy={copy.memory} reduced={reduced} />
+        </div>
+        <div className="wl-page" data-edge={EDGE.dawn}>
+          <Entry {...props} />
+        </div>
       </main>
     </div>
   );

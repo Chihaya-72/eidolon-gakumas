@@ -34,7 +34,7 @@ export function Landing({ isSignedIn, signInOptions }: { isSignedIn: boolean; si
   });
   return (
     <Welcome
-      appName={copy.app.name}
+      appName={w.intro.title}
       description={copy.app.description}
       disclaimer={t.disclaimer}
       copy={{
