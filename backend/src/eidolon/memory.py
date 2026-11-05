@@ -76,7 +76,7 @@ LATELY = timedelta(days=14)
 """How long ago what she reaches out with as his news may have been written down."""
 MAX_LATEST = 5
 """The most of his news she reaches out with, besides what is found."""
-ANOTHER_IDOL = "事务所的另一位偶像"
+ANOTHER_IDOL = "学园里的另一个人"
 """Who a memory was told to, when that character has been removed from the configuration."""
 
 # `memories` predates this module and keeps the columns and constraints it had in the

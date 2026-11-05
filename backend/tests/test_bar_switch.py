@@ -1,5 +1,5 @@
 """The bar's switch (GLOSSARY.md「酒吧」) and what reading it gives. The deployment's switch is
-`EIDOLON_BAR` in `.env`, on unless set to 0, anything but 0 or 1 refused as the backend
+`EIDOLON_BAR` in `.env`, off unless set to 1, anything but 0 or 1 refused as the backend
 starts; the admin console's「酒吧」card overrides it. `/api/bar` is for users who agreed to
 the terms (`test_consent`): off, it says only that; on, it has the drink catalog the bar
 counter and the recipe book are drawn from, without what only the model is given (the
@@ -17,14 +17,14 @@ from tests.test_admin_users import ADMIN, admin_beside
 BAR = "/api/admin/config/bar"
 
 
-def test_unset_in_env_it_is_on(monkeypatch: pytest.MonkeyPatch):
+def test_unset_in_env_it_is_off(monkeypatch: pytest.MonkeyPatch):
     # 0, 1 and anything else are every switch's (`config._switch`), as test_exempting_keys has.
     monkeypatch.setenv("CHAT_LLM_BASE_URL", "https://llm.example.com/v1")
     monkeypatch.setenv("CHAT_LLM_API_KEY", "sk-deployer")
     monkeypatch.setenv("CHAT_LLM_MODEL", "deployer-model")
     monkeypatch.delenv("EIDOLON_BAR", raising=False)
 
-    assert Settings.from_env().bar is True
+    assert Settings.from_env().bar is False
 
 
 async def test_on_reading_gives_the_drink_catalog_without_what_only_the_model_is_given(

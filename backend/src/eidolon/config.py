@@ -647,7 +647,7 @@ class Settings:
             moments=_switch("EIDOLON_MOMENTS"),
             schedule=_switch("EIDOLON_SCHEDULE", default=True),
             cycles=_switch("EIDOLON_CYCLES", default=True),
-            bar=_switch("EIDOLON_BAR", default=True),
+            bar=_switch("EIDOLON_BAR", default=False),
             proxy=proxy_from_env(),
             service_status=service_status_from_env(),
             domain=os.environ.get("EIDOLON_DOMAIN", "").strip() or None,

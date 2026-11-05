@@ -85,6 +85,7 @@ export {
   Shapes as PlayIcon,
 } from "lucide-react";
 export { Gift as GiftIcon } from "lucide-react";
+export { Ticket as ResetCardIcon } from "lucide-react";
 
 // 朋友圈页一条动态下面那一块里，赞的人那一行打头的心形；也是行尾「⋯」弹出的「赞」。
 export { Heart as LikesIcon } from "lucide-react";

@@ -77,8 +77,8 @@ slots = ["morning"]
 
 [[jobs]]
 id = "unit-rehearsal"
-name = "组合排练"
-note = "和组合的伙伴们把整首歌从头到尾合几遍。"
+name = "伙伴合练"
+note = "和一起登台的伙伴们把整首歌从头到尾合几遍。"
 category = "practice"
 length = 2
 
@@ -150,7 +150,7 @@ length = 3
 [[jobs]]
 id = "web-stream"
 name = "网络直播"
-note = "在事务所的频道上直播聊天，和观众一起玩小游戏。"
+note = "在自己的频道上直播聊天，和观众一起玩小游戏。"
 category = "appearance"
 length = 1
 slots = ["evening"]
@@ -189,14 +189,14 @@ length = 1
 [[jobs]]
 id = "social-media"
 name = "写官方账号的近况"
-note = "给事务所的官方账号写近况，挑要发的照片。"
+note = "给自己的官方账号写近况，挑要发的照片。"
 category = "business"
 length = 1
 
 [[jobs]]
 id = "fan-letters"
 name = "回粉丝来信"
-note = "在事务所读粉丝的来信，挑几封写回信。"
+note = "在学园里读粉丝的来信，挑几封写回信。"
 category = "business"
 length = 1
 
@@ -232,7 +232,7 @@ slots = ["morning"]
 [[jobs]]
 id = "autographs"
 name = "签名"
-note = "在事务所给周边和色纸签名。"
+note = "在学园里给周边和色纸签名。"
 category = "business"
 length = 1
 

@@ -11,6 +11,7 @@ import { copy } from "@/i18n";
 const t = copy.settings.appearance;
 
 /**
+ * 暂时不在设置列表里：学园偶像大师的角色没有 SCSP 头像（.scratch/gakumas-residue/unfixed.md）。
  * 设置「外观」：现在只有「SCSP 头像」（GLOSSARY.md「SCSP 头像」），记在这台设备上、按用户分开。
  * 值由导航外壳持有，一拨开关，登录后应用里的头像和一级「外观」的摘要都马上跟着换。
  */
