@@ -174,7 +174,7 @@ async def test_a_memory_told_to_a_character_since_removed_is_hearsay_from_anothe
     [cat] = await memories.entries(world.producer)
     await memories.aclose()
 
-    assert "听事务所的另一位偶像说" in line_of(section, CAT)
+    assert "听学园里的另一个人说" in line_of(section, CAT)
     assert (cat.source_character_id, cat.source_character_name) == ("mano", None)
 
 

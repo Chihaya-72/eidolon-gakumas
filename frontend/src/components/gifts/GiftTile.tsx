@@ -2,15 +2,14 @@ import type { ReactNode } from "react";
 
 import type { GiftInfo } from "@/lib/gifts";
 import { cn } from "@/lib/utils";
+import { ResetCardIcon } from "@/theme/icons";
 
 const SIZES = { fill: "w-full", large: "w-40", small: "size-16 shrink-0" } as const;
-
-const RESET_CARD_SRC = "/reset-card/reset-card.webp";
 
 /**
  * 礼物的插画方块（DESIGN.md「礼物插画不算界面图标」）：`bg-muted` 的 `rounded-2xl` 正方形，插画 `object-contain` 留白。
  * 网格和全部抽完撑满一格（`fill`），单抽 160px（`large`），送礼面板和重置卡条 64px（`small`）。重置卡不是礼物，
- * 但也放它的插画（`isResetCard`）。角上的闪光、件数作为 `children` 叠在上面。`isHoverable`：整格是按钮时，悬停底色加深。
+ * 但也放它的图标（`isResetCard`，原来的插画画着闪耀色彩的角色，先不显示）。角上的闪光、件数作为 `children` 叠在上面。`isHoverable`：整格是按钮时，悬停底色加深。
  */
 export function GiftTile({
   gift,
@@ -25,7 +24,7 @@ export function GiftTile({
   isHoverable?: boolean;
   children?: ReactNode;
 }) {
-  const src = gift ? `/gifts/${gift.id}.webp` : isResetCard ? RESET_CARD_SRC : null;
+  const src = gift ? `/gifts/${gift.id}.webp` : null;
   return (
     <span
       aria-hidden
@@ -44,6 +43,7 @@ export function GiftTile({
           className={cn("size-full object-contain", size === "small" ? "p-1.5" : "p-2")}
         />
       )}
+      {isResetCard && !gift && <ResetCardIcon className="size-1/2 text-muted-foreground" />}
       {children}
     </span>
   );

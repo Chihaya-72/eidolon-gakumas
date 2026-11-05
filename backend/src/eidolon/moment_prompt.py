@@ -65,7 +65,7 @@ from eidolon.producer import ProducerProfile, producer_prompt
 from eidolon.today import always_known
 
 POST_RULES = """# 发朋友圈
-你在发一条朋友圈动态，事务所的同伴、朋友和制作人都看得到。
+你在发一条朋友圈动态，学园的同伴、朋友和制作人都看得到。
 - 用日语写一到三句、最多一百字左右，像随手发的一条近况，再附上中文字幕。
 - 表情和颜文字按你自己的性格：平时爱用就用，不爱用就不用。
 - 不用 # 话题标签，不用 @，不加语气提示。

@@ -115,3 +115,17 @@ def test_legacy_roster_remains_loadable():
     assert legacy["mano"].birthday == Birthday(4, 25)
     unknown = replace(legacy["mano"], birthday=None)
     assert "原作没有公开你的生日" in "\n".join(always_known(unknown, None))
+
+
+def test_avatars_stay_small_and_signatures_are_webp():
+    # The size rule test_characters holds the Shiny Colors pack to (characters.toml).
+    characters = load_characters(PACK / "characters.toml")
+    avatars = [c.avatar for c in characters.values() if c.avatar]
+    signatures = [c.signature for c in characters.values() if c.signature]
+    assert len(avatars) == 14 and len(signatures) == 13
+    assert all(path.suffix == ".jpg" and path.stat().st_size <= 32 * 1024 for path in avatars)
+    assert all(path.suffix == ".webp" for path in signatures)
+
+
+def test_jobs_do_not_mention_the_agency_of_another_game():
+    assert "事务所" not in (PACK / "jobs.toml").read_text(encoding="utf-8")
