@@ -158,7 +158,7 @@ components:
 - **Header name**（600，17px）：对话页页首的角色名。
 - **Row name**（600，15px）：列表行的角色名。
 - **Japanese line**（400，16px，LINE Seed JP）：气泡里她的日语原文，外面包 `<Ja>`（`lang="ja"`，换字体）。通话层里 17px、居中、`text-wrap: balance`。
-- **Body**（400，15px）：制作人的消息、输入框。
+- **Body**（400，15px）：制作人的消息、输入框。触屏设备上所有输入框一律 16px，否则 iOS Safari 聚焦时会放大页面。
 - **Preview**（400，13px，muted）：列表行的最后一句，单行截断。
 - **Subtitle**（400，0.75rem，muted）：气泡里的中文字幕；通话层里 0.875rem、80% 白。
 - **Meta**（400，10–11px，muted，等宽数字）：时间戳、列表时间、日期条。

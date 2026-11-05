@@ -357,6 +357,16 @@
   --spacing: 4px;
 }
 
+/* iOS Safari 在字号小于 16px 的输入框获得焦点时会自动放大页面，放大后不会自己缩回去。
+   触屏上输入框一律 16px；放在层外，好压过 text-body、md:text-sm 这些工具类。 */
+@media (hover: none) and (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
