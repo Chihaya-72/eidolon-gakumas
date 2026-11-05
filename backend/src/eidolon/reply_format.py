@@ -34,6 +34,12 @@ _FORMAT = """\
 <ja>日语原文</ja><zh>中文字幕</zh>
 除了这些标签和标签里的内容，不要输出任何其他文字。
 
+# 日语原文里不能有中文
+<ja> 里只写日本人平时会说的日语，中文只写在 <zh> 里。
+- 人设、资料、记忆和对方的话大多是中文写的，它们只是告诉你内容。写进 <ja> 时要换成日语的说法，不要照抄中文的词、句子和语序。
+- 汉字也用日语的写法，不写简体字：写「練習」「話」「気持ち」「広」「沢」，不写「练习」「话」「心情」「广」「泽」。人名、地名、作品名也一样；拿不准日语怎么写汉字时，就改用假名。
+- 哪怕对方全程说中文，或者前面的回复里混进过中文，也不要跟着写。
+
 # 说话长度
 像真人当面说话那样：接对方一句话，通常只回一两句。
 - 平时只写一到两段，每段只有一句简短的口语。不写长句，不要把几件事塞进一段，也不要用「首先……其次……」这种条理分明的说法。
@@ -75,6 +81,10 @@ only the cues in square brackets, and short ones best."""
 DIRECTED_FORMAT_INSTRUCTIONS = _FORMAT + _DIRECTED_CUES
 """The reply format, for a turn voiced with a model that reads paired tags too, and
 directions as long as a director's (`delivery_cues.TAG_READERS`)."""
+
+JAPANESE_ONLY_REMINDER = "提醒：<ja> 里只写日语，不要混入中文的词、语序和简体字；中文只写在 <zh> 里。"
+"""Told again right before the user's latest words: a reply drifts toward the language of
+a long Chinese conversation, however clear the format said at the start of the prompt."""
 
 
 def format_instructions(voiced_by: FishAudioModel | None) -> str:

@@ -153,6 +153,7 @@ from eidolon.photos import CANNOT_SEND, NOT_RECEIVED, Eligibility, Photos, photo
 from eidolon.producer import ProducerProfile, effective_timezone, local_date, producer_prompt
 from eidolon.recent_moments import moments_section
 from eidolon.reply_format import (
+    JAPANESE_ONLY_REMINDER,
     format_instructions,
     PhotoTagged,
     ReplyParser,
@@ -1363,7 +1364,7 @@ class ConversationEngine:
         context = [*about_turn]
         if any(m.photo_failed for m in history):
             context.append(NOT_RECEIVED)
-        context += closing
+        context += [*closing, JAPANESE_ONLY_REMINDER]
         prompt.append(ChatMessage("system", "\n\n".join(context)))
         prompt.append(ChatMessage("user", f"{narration.get(None, '')}{text}"))
         return prompt
