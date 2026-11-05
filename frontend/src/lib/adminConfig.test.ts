@@ -528,6 +528,7 @@ describe("cycles and the bar", () => {
   it("are cards of limits and play: letters and moments after reach-outs, cycles and the bar after the schedule", () => {
     expect(TAB_ITEMS.limits).toEqual([
       "limits",
+      "guest_limits",
       "own_keys",
       "affinity",
       "reach_outs",
@@ -546,10 +547,10 @@ describe("tabs", () => {
     expect([...placed].sort()).toEqual(Object.keys(ITEM_SPECS).sort());
   });
 
-  it("take a tab from the address and fall back to administrator settings", () => {
-    expect(tabFromQuery("voice")).toBe("access");
-    expect(tabFromQuery("network")).toBe("access");
-    for (const value of [undefined, "nope"]) expect(tabFromQuery(value), String(value)).toBe("access");
+  it("take a tab from the address and fall back to the public API", () => {
+    expect(tabFromQuery("voice")).toBe("public_api");
+    expect(tabFromQuery("network")).toBe("public_api");
+    for (const value of [undefined, "nope"]) expect(tabFromQuery(value), String(value)).toBe("public_api");
   });
 
   it("keep a public API category in the address", () => {
@@ -557,11 +558,11 @@ describe("tabs", () => {
     for (const value of [undefined, "nope", "limits", ["voice"]]) expect(publicApiTabFromQuery(value)).toBe("models");
     expect(publicApiTabHref("/admin/config", "models")).toBe("/admin/config");
     expect(publicApiTabHref("/admin/config", "network")).toBe("/admin/config?tab=network");
-    expect(tabFromQuery(publicApiTabHref("/admin/config", "network").split("=")[1])).toBe("access");
+    expect(tabFromQuery(publicApiTabHref("/admin/config", "network").split("=")[1])).toBe("public_api");
   });
 
   it("leave the default tab out of the address", () => {
-    expect(tabHref("/admin/config", "access")).toBe("/admin/config");
+    expect(tabHref("/admin/config", "public_api")).toBe("/admin/config");
     expect(tabHref("/admin/config", "read_only")).toBe("/admin/config?tab=read_only");
   });
 
@@ -571,7 +572,7 @@ describe("tabs", () => {
       stt: item("failed"),
       judge: { unavailable: "没有配置判断模型" },
     } as unknown as AdminConfig;
-    expect(CONFIG_TABS.filter((tab) => tabHasFailure(config, tab))).toEqual(["access"]);
+    expect(CONFIG_TABS.filter((tab) => tabHasFailure(config, tab))).toEqual(["public_api"]);
   });
 });
 

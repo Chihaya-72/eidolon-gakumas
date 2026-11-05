@@ -110,7 +110,7 @@ export function AdminAccess() {
       <Card>
         <CardHeader>
           <CardTitle><h2>服务排队</h2></CardTitle>
-          <CardDescription>使用本站主要 API 的操作共用一个队列。管理员优先，其余按最近六小时使用次数由少到多排序，同次数先到先服务；正在进行的操作不会被打断。主要 API 全部自带时免排队。</CardDescription>
+          <CardDescription>使用本站主要 API 的操作共用一个队列。管理员优先，游客排在所有注册用户之后，同类按最近六小时使用次数由少到多排序，同次数先到先服务；正在进行的操作不会被打断。主要 API 全部自带时免排队。</CardDescription>
         </CardHeader>
       </Card>
     </>

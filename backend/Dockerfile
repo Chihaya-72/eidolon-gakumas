@@ -18,5 +18,9 @@ ENV PATH=/app/.venv/bin:$PATH \
     EIDOLON_STORY_PATH=/corpus/SCTranslationData/data/story \
     EIDOLON_MIRROR_CACHE_PATH=/data/mirror \
     EIDOLON_EVENT_NAMES_PATH=/deploy/event-names.toml
+# Not root: /data is theirs, for a volume made anew. One made before this is handed over by
+# `backend-init` in the compose files.
+RUN useradd --system --uid 10001 --create-home eidolon && mkdir -p /data && chown eidolon /data
+USER eidolon
 EXPOSE 8000
 CMD ["eidolon"]

@@ -135,14 +135,14 @@ export function AdminConfig({
             </TabsList>
             {CONFIG_TABS.map((name) => (
               <TabsContent key={name} value={name} keepMounted className="flex flex-col gap-6">
-                {name !== "access" && TAB_ITEMS[name].map((item) => (
+                {name !== "public_api" && TAB_ITEMS[name].map((item) => (
                   <ItemCard key={item} name={item} config={config} onChange={setConfig}>
                     {item === "affinity" && <ResetCardGrants isOn={isOn(config.affinity)} />}
                   </ItemCard>
                 ))}
-                {name === "access" && (
+                {name === "access" && <AdminAccess />}
+                {name === "public_api" && (
                   <>
-                    <AdminAccess />
                     <section className="flex flex-col gap-4" aria-labelledby="public-api-title">
                       <h2 id="public-api-title" className="text-lg font-semibold">{t.publicApiTitle}</h2>
                       <p className="text-sm text-muted-foreground">{t.publicApiIntro}</p>
@@ -612,7 +612,7 @@ function AvailableItem({
                     />
                   );
                 }
-                if (field.kind === "count" || field.kind === "positive") {
+                if (field.kind === "count" || field.kind === "positive" || field.kind === "allowance") {
                   const hint = fieldHint(name, field, keysEditable);
                   return (
                     <Field key={field.name} data-invalid={problem ? true : undefined}>
@@ -622,7 +622,7 @@ function AvailableItem({
                         label={label}
                         value={form[field.name] === "" ? null : Number(form[field.name])}
                         onChange={(count) => set(field.name)(count === null ? "" : String(count))}
-                        min={1}
+                        min={field.kind === "allowance" ? 0 : 1}
                         max={field.kind === "count" ? MAX_COUNT : undefined}
                         isIntegerOnly
                         isInvalid={problem !== null}

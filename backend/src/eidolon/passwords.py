@@ -142,10 +142,11 @@ class AttemptLimit:
             self._seen.pop(key, None)
         return recent
 
-    def wait(self, key: str) -> int | None:
-        """In how many seconds `key` may try again; None if it may now."""
+    def wait(self, key: str, times: int | None = None) -> int | None:
+        """In how many seconds `key` may try again, `times` a window if given rather than
+        as made; None if it may now."""
         recent = self._recent(key)
-        if len(recent) < self._times:
+        if len(recent) < (self._times if times is None else times):
             return None
         return max(1, int((recent[0] + self._window - self._clock()).total_seconds()) + 1)
 

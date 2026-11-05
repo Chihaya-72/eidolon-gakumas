@@ -2,7 +2,7 @@
 
 ## Public APIs and first startup
 
-The site and admin console can start with all service API keys empty. Shared models, speech, image generation, weather and proxy settings are grouped under **管理员设置 → 公用 API** in the admin configuration. Personal API settings are unchanged. Unconfigured shared models make no provider requests; users may bring their own API as before.
+The site and admin console can start with all service API keys empty. Shared models, speech, image generation, weather and proxy settings are grouped under the **公用 API** tab in the admin configuration. Personal API settings are unchanged. Unconfigured shared models make no provider requests; users may bring their own API as before.
 
 Set `EIDOLON_SECRET_KEY` to enable encrypted storage of API keys in the admin console. It is a local encryption secret, not a provider API key. Chat model settings require a URL, key and model when saved, and persist across restarts. Enabling the judge model for the first time requires a backend restart. Embedding remains deployment configuration because changing it requires rebuilding the index.
 

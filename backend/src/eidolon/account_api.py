@@ -723,15 +723,28 @@ def add_account_routes(app: FastAPI, backend: Backend) -> None:
             await signed_in(user.id, response, request)
 
     if settings.guest_login:
+        new_guests_here = AttemptLimit(clock, 0, timedelta(hours=1))
 
         @app.post("/api/auth/guest-login", status_code=204)
         async def guest_login(request: Request, response: Response) -> None:
             if await session_user(request) is not None:
                 return
             browser_token = request.cookies.get("eidolon_guest", "")
-            user, token = await store.guest_user(
+            browser_token = (
                 browser_token if re.fullmatch(r"[A-Za-z0-9_-]{43}", browser_token) else None
             )
+            if browser_token is None or await store.guest_of_token(browser_token) is None:
+                # A new guest is a new allowance: so many an address, 0 for none at all.
+                allowed = backend.config.guest_limits.new_guests_per_address_per_hour
+                if allowed == 0:
+                    raise HTTPException(403, "现在不开放新的游客登录")
+                ip = client_ip(request, settings)
+                if wait := new_guests_here.wait(ip, allowed):
+                    raise HTTPException(
+                        429, "新的游客登录太频繁了，请稍后再试", headers={"Retry-After": str(wait)}
+                    )
+                new_guests_here.count(ip)
+            user, token = await store.guest_user(browser_token)
             if user.banned_at is not None:
                 raise HTTPException(403, "这位用户已被封禁")
             response.set_cookie("eidolon_guest", token, max_age=365 * 86400,

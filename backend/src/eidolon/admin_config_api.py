@@ -34,6 +34,7 @@ from eidolon.live_config import (
     LIMITS,
     MEMORY_LLM,
     LETTERS,
+    GUEST_LIMITS,
     OWN_KEYS,
     MOMENTS,
     PROXY,
@@ -226,6 +227,18 @@ class OwnKeysSwitchInput(BaseModel):
     enabled: Any
 
 
+class GuestLimitsInput(BaseModel):
+    """What guests may use; checked by the live configuration."""
+
+    turns_per_hour: Any
+    calls_per_hour: Any
+    photos_per_hour: Any
+    visits_per_hour: Any
+    read_alouds_per_hour: Any
+    all_guests_per_hour: Any
+    new_guests_per_address_per_hour: Any
+
+
 class MomentsInput(BaseModel):
     """Whether characters post moments, true or false, how many a day each user at most, a
     whole number from 1 up, which map their places link to, and how many of each user's
@@ -326,6 +339,7 @@ INPUTS: dict[str, type[BaseModel]] = {
     SERVICE_STATUS: ServiceStatusInput,
     REGISTRATION: RegistrationInput,
     OWN_KEYS: OwnKeysSwitchInput,
+    GUEST_LIMITS: GuestLimitsInput,
 }
 
 

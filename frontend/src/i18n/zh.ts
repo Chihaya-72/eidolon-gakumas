@@ -1715,7 +1715,8 @@ export const zh = {
       proxyKept: (reason: string) => `已选中走代理的服务不会自动回退直连，请修复代理或主动修改设置。原因：${reason}`,
       nav: "配置分类",
       tabs: {
-        access: "管理员设置",
+        public_api: "公用 API",
+        access: "访问控制",
         models: "模型",
         voice: "语音",
         image: "生图",
@@ -1812,6 +1813,10 @@ export const zh = {
         service_status: {
           title: "服务状态",
           hint: "对话列表铃铛旁边给用户看各项服务正不正常：按统计时段里用部署者 key 的调用算出错率，时段里没有调用的，后台用最小的真实请求试一下（生图不试）。一项都不显示时用户那边没有按钮。保存后立刻生效。",
+        },
+        guest_limits: {
+          title: "游客用量",
+          hint: "只管游客用部署者服务的量，0 表示不开放，不是不限。排队时游客排在所有注册用户之后。「所有游客合计」把回合、通话、照片、光顾和朗读都算一次，清掉 Cookie 换新身份也绕不过去。保存后立刻生效。",
         },
         own_keys: {
           title: "自行填写 API",
@@ -1925,6 +1930,15 @@ export const zh = {
         },
         registration: { mode: "谁能注册" },
         own_keys: { enabled: "允许用户自行填写 API" },
+        guest_limits: {
+          turns_per_hour: "每位游客每小时回合数",
+          calls_per_hour: "每位游客每小时通话次数",
+          photos_per_hour: "每位游客每小时照片数",
+          visits_per_hour: "每位游客每小时光顾次数",
+          read_alouds_per_hour: "每位游客每小时朗读次数",
+          all_guests_per_hour: "所有游客合计每小时用量",
+          new_guests_per_address_per_hour: "每个 IP 每小时新游客数",
+        },
         gpt_image: { style: "风格句" },
       } as Partial<Record<string, Record<string, string>>>,
       formHints: {
@@ -1964,6 +1978,7 @@ export const zh = {
         limit: (field: string) => `${field}需要是 1 以上的整数；不想限制就选「不限」。`,
         count: (field: string) => `${field}需要是 1 到 10 之间的整数。`,
         positive: (field: string) => `${field}需要是正整数。`,
+        allowance: (field: string) => `${field}需要是 0 或正整数，0 表示不开放。`,
       },
       unlimited: "不限",
       minutes: (n: string) => `${n} 分钟`,

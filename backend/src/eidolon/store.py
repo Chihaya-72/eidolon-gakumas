@@ -619,6 +619,10 @@ class Store:
     async def username_key_of(self, user_id: str) -> str | None:
         return await self._db.read(_username_key_of, user_id)
 
+    async def guest_of_token(self, browser_token: str) -> User | None:
+        """The guest this browser already is, if any."""
+        return await self._db.read(_guest_of_token, browser_token)
+
     async def get_user(self, user_id: str) -> User:
         user = await self._db.read(_user, user_id)
         if user is None:
@@ -1041,6 +1045,13 @@ def _bootstrap_admin(db: sqlite3.Connection) -> None:
     if first is not None:
         db.execute("UPDATE users SET is_admin = 1 WHERE id = ?", (first[0],))
         db.execute("UPDATE admin_bootstrap SET claimed = 1 WHERE id = 1")
+
+
+def _guest_of_token(db: sqlite3.Connection, token: str) -> User | None:
+    row = db.execute(
+        "SELECT user_id FROM guest_browsers WHERE token_hash = ?", (_hash(token),)
+    ).fetchone()
+    return _user(db, row[0]) if row else None
 
 
 def _guest_user(db: sqlite3.Connection, token: str | None) -> tuple[User, str]:
