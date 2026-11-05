@@ -15,6 +15,14 @@
 }
 
 {$EIDOLON_DOMAIN} {
+	# 页面的 CSP 由前端 proxy.ts 设置，防嵌入在它的 frame-ancestors 里。HSTS 先设一天，确认没问题再加长；
+	# 不带 includeSubDomains，免得影响域名下别的子域名。通话要用麦克风、选城市要用定位，这两项留给本站
+	header {
+		Strict-Transport-Security "max-age=86400"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), geolocation=(self), microphone=(self), payment=(), usb=()"
+	}
 	# 导入数据包是一个最大 200 MiB 的请求体，后端自己会拒绝更大的、说清楚为什么；这里比它
 	# 略宽，只挡远远超出的。只卡这一个地址，别的不动
 	request_body /api/account/data-package {
