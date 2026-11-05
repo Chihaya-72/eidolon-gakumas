@@ -20,11 +20,10 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, model_validator
 from starlette.types import Receive, Scope, Send
 
-from eidolon.account_api import OwnKeysInput
+from eidolon.account_api import OwnKeysInput, brought_keys
 from eidolon.assembly import Backend
 from eidolon.bar import BarCall, BarClosed, BrokenDrink, NotFailed, NotWaiting, VisitGone
 from eidolon.drink_catalog import Mixture
-from eidolon.own_keys import BroughtKeys
 from eidolon.sessions import DeviceTimezone, UserId
 
 
@@ -89,7 +88,7 @@ def add_bar_routes(app: FastAPI, backend: Backend) -> None:
         body: VisitInput, user_id: UserId, device_timezone: DeviceTimezone = None
     ) -> StreamingResponse:
         """A visit begun, any of the user's under way done away with."""
-        return _events(await bar.enter(user_id, _brought(body.own_keys), device_timezone))
+        return _events(await bar.enter(user_id, brought_keys(backend, body.own_keys), device_timezone))
 
     @app.post("/api/bar/visits/{visit_id}/serves")
     async def serve(visit_id: str, body: ServeInput, user_id: UserId) -> StreamingResponse:
@@ -107,8 +106,6 @@ def add_bar_routes(app: FastAPI, backend: Backend) -> None:
         await bar.leave(user_id, visit_id)
 
 
-def _brought(own_keys: OwnKeysInput | None) -> BroughtKeys:
-    return own_keys.brought() if own_keys else BroughtKeys()
 
 
 def _events(call: BarCall) -> StreamingResponse:

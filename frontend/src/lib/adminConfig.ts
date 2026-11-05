@@ -39,7 +39,8 @@ export type ItemName =
   | "bar"
   | "proxy"
   | "service_status"
-  | "registration";
+  | "registration"
+  | "own_keys";
 
 /** A model's extra request body is a JSON object; every other value is plain. */
 type Value = string | number | boolean | null | JsonObject;
@@ -99,7 +100,7 @@ export type ConfigTab = (typeof CONFIG_TABS)[number];
 export const TAB_ITEMS: Record<ConfigTab, ItemName[]> = {
   access: PUBLIC_API_TABS.flatMap((tab) => PUBLIC_API_ITEMS[tab]),
   status: ["service_status"],
-  limits: ["limits", "affinity", "reach_outs", "letters", "moments", "schedule", "cycles", "bar"],
+  limits: ["limits", "own_keys", "affinity", "reach_outs", "letters", "moments", "schedule", "cycles", "bar"],
   registration: ["registration"],
   sponsor: [],
   prices: [],
@@ -465,6 +466,13 @@ export const ITEM_SPECS: Record<ItemName, ItemSpec> = {
       { name: "window_minutes", kind: "minutes", options: STATUS_WINDOWS },
       ...STATUS_SERVICES.map((name): FieldSpec => ({ name, kind: "switch" })),
     ],
+    tried: false,
+  },
+  // 用户能不能自行填写 API。不试调。
+  own_keys: {
+    rows: ["enabled"],
+    secrets: [],
+    form: [{ name: "enabled", kind: "switch" }],
     tried: false,
   },
   // 注册方式（GLOSSARY.md「注册方式」）：谁都能注册，或者只让受邀的人注册。不试调。

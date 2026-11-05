@@ -56,6 +56,12 @@ CREATE TABLE IF NOT EXISTS admin_bootstrap (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     claimed INTEGER NOT NULL DEFAULT 0
 );
+-- Who signs in with a name and a password. `username_key` is the name as compared.
+CREATE TABLE IF NOT EXISTS password_logins (
+    user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    username_key TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS guest_browsers (
     token_hash TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE
@@ -238,6 +244,14 @@ class SignInMethod:
 
 class IdentityTaken(Exception):
     """The identity already belongs to a user."""
+
+
+class UsernameTaken(Exception):
+    """Someone already signs in with the name."""
+
+
+class AdminClaimed(Exception):
+    """The deployment's one claim of admin is gone."""
 
 
 class LastSignInMethod(Exception):
@@ -582,6 +596,28 @@ class Store:
     async def guest_user(self, browser_token: str | None) -> tuple[User, str]:
         """Resume this browser's guest, or create one with a server-generated secret."""
         return await self._db.write(_guest_user, browser_token)
+
+    async def create_password_user(
+        self, name: str, key: str, password_hash: str, claims_admin: bool, admit: Admit | None
+    ) -> User:
+        """A new user who signs in with a name and a password, all or nothing: an admin if
+        `claims_admin` and no one has claimed that yet, let sign up by `admit` if given. Raises
+        UsernameTaken or AdminClaimed."""
+        user = User(uuid.uuid4().hex, name, _now())
+        try:
+            await self._db.write(
+                _insert_password_user, user, key, password_hash, claims_admin, admit
+            )
+        except sqlite3.IntegrityError:
+            raise UsernameTaken from None
+        return await self.get_user(user.id)
+
+    async def password_login(self, key: str) -> tuple[str, str] | None:
+        """The user who signs in with the name of this key and their password's hash."""
+        return await self._db.read(_password_login, key)
+
+    async def username_key_of(self, user_id: str) -> str | None:
+        return await self._db.read(_username_key_of, user_id)
 
     async def get_user(self, user_id: str) -> User:
         user = await self._db.read(_user, user_id)
@@ -955,11 +991,53 @@ def _insert_user(db: sqlite3.Connection, user: User) -> None:
     _bootstrap_admin(db)
 
 
+def _insert_password_user(
+    db: sqlite3.Connection, user: User, key: str, password_hash: str, claims_admin: bool,
+    admit: Admit | None,
+) -> None:
+    """Never `_bootstrap_admin`: with a name and a password, being first is not enough."""
+    db.execute(
+        "INSERT INTO users (id, name, created_at) VALUES (?, ?, ?)",
+        (user.id, user.name, user.created_at),
+    )
+    db.execute(
+        "INSERT INTO password_logins (user_id, username_key, password_hash) VALUES (?, ?, ?)",
+        (user.id, key, password_hash),
+    )
+    if admit is not None:
+        admit(db, user.id)
+    if claims_admin:
+        claimed = db.execute("UPDATE admin_bootstrap SET claimed = 1 WHERE id = 1 AND claimed = 0")
+        if claimed.rowcount != 1:
+            raise AdminClaimed
+        db.execute("UPDATE users SET is_admin = 1 WHERE id = ?", (user.id,))
+
+
+def _password_login(db: sqlite3.Connection, key: str) -> tuple[str, str] | None:
+    row = db.execute(
+        "SELECT user_id, password_hash FROM password_logins WHERE username_key = ?", (key,)
+    ).fetchone()
+    return (row[0], row[1]) if row else None
+
+
+def _username_key_of(db: sqlite3.Connection, user_id: str) -> str | None:
+    row = db.execute(
+        "SELECT username_key FROM password_logins WHERE user_id = ?", (user_id,)
+    ).fetchone()
+    return row[0] if row else None
+
+
 def _bootstrap_admin(db: sqlite3.Connection) -> None:
-    """Called inside schema preparation or the registration transaction, never per login."""
+    """Called inside schema preparation or the registration transaction, never per login.
+    Those signed up with a name and a password are passed over, here too as the server starts:
+    they are admins only by claiming it (`_insert_password_user`)."""
     if db.execute("SELECT claimed FROM admin_bootstrap WHERE id = 1").fetchone()[0]:
         return
-    first = db.execute("SELECT id FROM users WHERE is_guest = 0 ORDER BY created_at, rowid LIMIT 1").fetchone()
+    first = db.execute(
+        "SELECT id FROM users WHERE is_guest = 0"
+        " AND id NOT IN (SELECT user_id FROM password_logins)"
+        " ORDER BY created_at, rowid LIMIT 1"
+    ).fetchone()
     if first is not None:
         db.execute("UPDATE users SET is_admin = 1 WHERE id = ?", (first[0],))
         db.execute("UPDATE admin_bootstrap SET claimed = 1 WHERE id = 1")

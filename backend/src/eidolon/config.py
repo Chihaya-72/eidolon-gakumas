@@ -541,6 +541,10 @@ class Settings:
     """The public deployment's domain (behind Caddy); None in development."""
     dev_login: bool = False
     """Lets anyone sign in as any user by name, for development and tests only."""
+    password_login: bool = False
+    """Offers signing up and in with a user name and a password (`passwords`)."""
+    own_keys: bool = True
+    """Whether users may bring their own API keys (`own_keys`)."""
     guest_login: bool = False
     """Offers browser-specific guest accounts without administrator access."""
     github: "OAuthSettings | None" = None
@@ -652,6 +656,8 @@ class Settings:
             service_status=service_status_from_env(),
             domain=os.environ.get("EIDOLON_DOMAIN", "").strip() or None,
             dev_login=os.environ.get("EIDOLON_DEV_LOGIN", "").strip() == "1",
+            password_login=_switch("EIDOLON_PASSWORD_LOGIN"),
+            own_keys=_switch("EIDOLON_OWN_KEYS", default=True),
             guest_login=os.environ.get("EIDOLON_GUEST_LOGIN", "").strip() == "1",
             github=OAuthSettings.from_env("GITHUB"),
             google=OAuthSettings.from_env("GOOGLE"),

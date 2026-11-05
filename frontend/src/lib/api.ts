@@ -14,6 +14,7 @@ import {
   type LocalModel,
   type OwnService,
   type SttProvider,
+  setOwnKeysAllowed,
 } from "@/lib/localOwnKeys";
 import type { LLMOffer, LLMProvider } from "@/lib/llmProviders";
 import type { EffortHint } from "@/lib/reasoningEffort";
@@ -487,7 +488,7 @@ export async function api(path: string, init: RequestInit = {}): Promise<Respons
 
 /** The ways to sign in the backend offers, and how to reach the deployer (null if the
  * deployer gave none), which a banned user is told. */
-export type SignInOptions = { providers: Provider[]; dev_login: boolean; guest_login?: boolean; contact: string | null };
+export type SignInOptions = { providers: Provider[]; dev_login: boolean; guest_login?: boolean; password_login?: boolean; contact: string | null };
 
 /** What the landing page shows that belongs to no one character. `memory_still_url`: its act about
  * memory as one picture, for visitors who see no animation, in the stands' bucket; null unless the
@@ -525,6 +526,8 @@ export type Account = {
   moments: boolean | null;
   /** Whether the deployer has letters on (GLOSSARY.md「信」); the letters written stay to be read either way. */
   letters: boolean;
+  /** Whether the deployer lets users bring their own API keys. */
+  own_keys_allowed: boolean;
   sponsor_version: string | null;
   /** Whether the deployer has a key for speech synthesis now: her words are read aloud on it for those
    * who keep none of their own in this browser (GLOSSARY.md「朗读」). */
@@ -546,7 +549,9 @@ export async function isSignedInHere(): Promise<boolean> {
 
 /** The signed-in user; sends the browser to sign in, or to agree to the terms, first. */
 export async function getAccount(): Promise<Account> {
-  return json(await api("/api/account"));
+  const account: Account = await json(await api("/api/account"));
+  setOwnKeysAllowed(account.own_keys_allowed);
+  return account;
 }
 
 /** Turn the user's own switch for reach-outs on or off, for all the characters; refused where the
@@ -719,6 +724,26 @@ export async function agreeToTerms(): Promise<void> {
 /** Sign this browser in as its own guest. */
 export async function guestLogin(): Promise<void> {
   await expectNoContent(await api("/api/auth/guest-login", { method: "POST" }));
+}
+
+/** Signing up and in with a name and a password: straight through `fetch`, as a wrong password's 401
+ * is to be shown here rather than send the browser to the sign-in page (`api`). */
+async function passwordRequest(path: string, body: object): Promise<void> {
+  await expectNoContent(
+    await fetch(path, {
+      method: "POST",
+      headers: apiHeaders({ "content-type": "application/json" }),
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
+export async function passwordLogin(username: string, password: string): Promise<void> {
+  await passwordRequest("/api/auth/password-login", { username, password });
+}
+
+export async function passwordRegister(username: string, password: string, invite?: string | null): Promise<void> {
+  await passwordRequest("/api/auth/password-register", { username, password, invite: invite ?? null });
 }
 
 /** Sign in as the user with this name (development only). */

@@ -64,6 +64,7 @@ USER_DATA = [
     ("invited_users", "user_id = ?"),
     ("sessions", "user_id = ?"),
     ("guest_browsers", "user_id = ?"),
+    ("password_logins", "user_id = ?"),
     ("sign_in_methods", "user_id = ?"),
     ("users", "id = ?"),
 ]

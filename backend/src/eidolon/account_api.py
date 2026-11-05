@@ -23,12 +23,15 @@ import re
 import secrets
 from typing import Annotated, Any
 
-from fastapi import FastAPI, HTTPException, Path, Query, Request, Response
+from datetime import timedelta
+
+from fastapi import Depends, FastAPI, HTTPException, Path, Query, Request, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import (
     BaseModel, Field, Secret, StrictBool, StringConstraints, field_validator, model_validator,
 )
 
+from eidolon.access import client_ip
 from eidolon.accounts import SignInRefused, signs_in_as_admin
 from eidolon.activity import host
 from eidolon.assembly import Backend
@@ -54,8 +57,17 @@ from eidolon.identity import PROVIDER_NAMES, IdentityError
 from eidolon.moments import MomentsOff
 from eidolon.own_keys import NO_PHOTOS, BroughtKeys, OwnKeyRejected, named_services
 from eidolon.price_catalog import describe_offer, describe_provider, describe_thinking
+from eidolon.passwords import (
+    MAX_PASSWORD,
+    NAME_RULE,
+    AttemptLimit,
+    BadName,
+    password_problem,
+    signing_in_key,
+    wanted_name,
+)
 from eidolon.reach_outs import ReachOutsOff
-from eidolon.store import LastSignInMethod
+from eidolon.store import AdminClaimed, LastSignInMethod, UsernameTaken
 from eidolon.throttle import Throttle
 from eidolon.sessions import (
     SESSION_COOKIE,
@@ -81,6 +93,24 @@ def invite_code(invite: str | None) -> str:
     it, but whatever a chat app stuck to its end, a full stop say; empty for none."""
     found = INVITE_CODE.match(invite or "")
     return found.group() if found else ""
+
+
+_SIGN_UP_REFUSED = {
+    "banned": "这个名称已被封禁",
+    "not_invited": "现在只让受邀的人注册，请从邀请链接打开",
+    "invite_invalid": "这条邀请链接已经不能用了",
+}
+
+
+class PasswordSignIn(BaseModel):
+    """Long values are refused by hand, or the 422 would repeat them."""
+
+    username: str
+    password: Secret[str]
+
+
+class PasswordSignUp(PasswordSignIn):
+    invite: str | None = None
 
 
 class DevLogin(BaseModel):
@@ -272,6 +302,12 @@ class Consent(BaseModel):
         return self
 
 
+def brought_keys(backend: Backend, own: OwnKeysInput | None) -> BroughtKeys:
+    """The user's own keys a turn or call runs on: those it brought, none while the deployer
+    allows none, whatever a page still open or anyone else sends."""
+    return own.brought() if own is not None and backend.config.own_keys_on else BroughtKeys()
+
+
 def add_account_routes(app: FastAPI, backend: Backend) -> None:
     store, settings, clock = backend.store, backend.settings, backend.clock
     accounts, providers = backend.accounts, backend.identity_providers
@@ -294,6 +330,7 @@ def add_account_routes(app: FastAPI, backend: Backend) -> None:
             "providers": [p for p in PROVIDER_NAMES if p in providers],
             "dev_login": settings.dev_login,
             "guest_login": settings.guest_login,
+            "password_login": settings.password_login,
             "contact": settings.contact,
         }
 
@@ -411,6 +448,7 @@ def add_account_routes(app: FastAPI, backend: Backend) -> None:
             "cycles": cycles,
             "moments": moments,
             "letters": backend.config.letters_on,
+            "own_keys_allowed": backend.config.own_keys_on,
             "sponsor_version": sponsor.version,
             "deployer_tts": backend.config.has_service("tts"),
         }
@@ -468,6 +506,13 @@ def add_account_routes(app: FastAPI, backend: Backend) -> None:
     own_keys = backend.own_keys
     throttle = Throttle(backend.clock)
 
+    def own_keys_allowed() -> None:
+        """Before the server asks anything of a key or address a user wrote."""
+        if not backend.config.own_keys_on:
+            raise HTTPException(403, "部署者没有开放自行填写 API")
+
+    OwnKeysAllowed = Depends(own_keys_allowed)
+
     @app.exception_handler(OwnKeyRejected)
     async def own_key_rejected(_: Request, e: OwnKeyRejected) -> JSONResponse:
         """A user's own key failed its try: what the service said."""
@@ -485,7 +530,7 @@ def add_account_routes(app: FastAPI, backend: Backend) -> None:
             "calls": own_keys.exempt("call", services),
         }
 
-    @app.post("/api/account/keys/llm/check")
+    @app.post("/api/account/keys/llm/check", dependencies=[OwnKeysAllowed])
     async def check_own_llm(body: OwnChatLLMInput, user_id: UserId) -> dict:
         """Try the user's own LLM at its text effort and its call effort before their
         browser keeps it, keeping nothing here; 422 with what the service said if the try
@@ -496,7 +541,7 @@ def add_account_routes(app: FastAPI, backend: Backend) -> None:
             await own_keys.check_llm(own)
         return {"base_url": own.text.base_url, "model": own.text.model}
 
-    @app.post("/api/account/keys/memory-llm/check")
+    @app.post("/api/account/keys/memory-llm/check", dependencies=[OwnKeysAllowed])
     async def check_own_memory_llm(body: OwnLLMInput, user_id: UserId) -> dict:
         """Try the user's own model for memories at its effort before their browser keeps
         it, as `check_own_llm` does their LLM; why it failed comes after saying it was this
@@ -528,7 +573,7 @@ def add_account_routes(app: FastAPI, backend: Backend) -> None:
             return None
         return describe_thinking(thinking, protocol)
 
-    @app.post("/api/account/keys/llm/models")
+    @app.post("/api/account/keys/llm/models", dependencies=[OwnKeysAllowed])
     async def list_own_llm_models(body: OwnLLMListInput, user_id: UserId) -> dict:
         """The models the user's key is offered at the address, as the service lists them
         (`listing.list_models`), for the settings page to pick one from; keeping nothing
@@ -571,7 +616,7 @@ def add_account_routes(app: FastAPI, backend: Backend) -> None:
             response.headers["Cache-Control"] = "private, max-age=3600"
         return {"models": [describe_offer(o) for o in offers]}
 
-    @app.post("/api/account/keys/tts/check")
+    @app.post("/api/account/keys/tts/check", dependencies=[OwnKeysAllowed])
     async def check_own_tts(body: OwnTTSInput, user_id: UserId) -> dict:
         """Try the user's own key for speech synthesis before their browser keeps it,
         keeping nothing here; 422 with what the service said if the try failed."""
@@ -579,7 +624,7 @@ def add_account_routes(app: FastAPI, backend: Backend) -> None:
             await own_keys.check_tts(body.api_key.get_secret_value(), body.model)
         return {}
 
-    @app.post("/api/account/keys/stt/check")
+    @app.post("/api/account/keys/stt/check", dependencies=[OwnKeysAllowed])
     async def check_own_stt(body: OwnSTTInput, user_id: UserId) -> dict:
         """Try the user's own key for speech recognition, by the service it is for, before
         their browser keeps it, keeping nothing here; 422 with what the service said if
@@ -589,7 +634,7 @@ def add_account_routes(app: FastAPI, backend: Backend) -> None:
             key = await own_keys.check_stt(body.provider, body.api_key.get_secret_value())
         return {"region": key.region}
 
-    @app.post("/api/account/keys/image/check")
+    @app.post("/api/account/keys/image/check", dependencies=[OwnKeysAllowed])
     async def check_own_image(body: OwnImageInput, user_id: UserId) -> dict:
         """Try the user's own image generation before their browser keeps it, by generating
         one picture at their expense in the deployment's art style, keeping, counting and
@@ -607,6 +652,75 @@ def add_account_routes(app: FastAPI, backend: Backend) -> None:
     async def consent(body: Consent, user: SignedIn) -> None:
         """Agree to the privacy policy and terms of use, which the rest of the API waits for."""
         await store.consent(user.id, clock())
+
+    if settings.password_login:
+        minutes = timedelta(minutes=15)
+        failures_here = AttemptLimit(clock, 30, minutes)
+        failures_of_name = AttemptLimit(clock, 30, minutes)
+        failures_of_name_here = AttemptLimit(clock, 5, minutes)
+        sign_ups_here = AttemptLimit(clock, 10, timedelta(hours=1))
+
+        def refuse_if_waiting(*waits: int | None) -> None:
+            if wait := max((w for w in waits if w is not None), default=None):
+                raise HTTPException(
+                    429, "试得太频繁了，请稍后再试", headers={"Retry-After": str(wait)}
+                )
+
+        @app.post("/api/auth/password-register", status_code=204)
+        async def password_register(
+            body: PasswordSignUp, request: Request, response: Response
+        ) -> None:
+            """Sign up with a name and a password and sign in; the name's rules are in
+            `passwords`. Every try that gets as far as costing a hash counts."""
+            ip = client_ip(request, settings)
+            refuse_if_waiting(sign_ups_here.wait(ip))
+            password = body.password.get_secret_value()
+            try:
+                wanted = wanted_name(body.username)
+            except BadName as e:
+                raise HTTPException(422, str(e)) from None
+            if problem := password_problem(password, wanted.key):
+                raise HTTPException(422, problem)
+            sign_ups_here.count(ip)
+            try:
+                user = await accounts.register(wanted, password, invite_code(body.invite) or None)
+            except UsernameTaken:
+                raise HTTPException(409, "这个名称已经有人用了") from None
+            except AdminClaimed:
+                raise HTTPException(422, NAME_RULE) from None
+            except SignInRefused as e:
+                raise HTTPException(403, _SIGN_UP_REFUSED.get(e.reason, "没能注册")) from None
+            response.headers["Cache-Control"] = "no-store"
+            await signed_in(user.id, response, request)
+
+        @app.post("/api/auth/password-login", status_code=204)
+        async def password_login(
+            body: PasswordSignIn, request: Request, response: Response
+        ) -> None:
+            """Sign in with a name and a password: 401, the same, whichever was wrong."""
+            ip = client_ip(request, settings)
+            key = signing_in_key(body.username)
+            name = key or ""
+            pair = f"{ip}|{name}"
+            refuse_if_waiting(
+                failures_here.wait(ip), failures_of_name.wait(name),
+                failures_of_name_here.wait(pair),
+            )
+            password = body.password.get_secret_value()
+            try:
+                user = await accounts.sign_in_with_password(
+                    key, password
+                ) if len(password) <= MAX_PASSWORD else None
+            except SignInRefused:
+                raise HTTPException(403, "这位用户已被封禁") from None
+            if user is None:
+                failures_here.count(ip)
+                failures_of_name.count(name)
+                failures_of_name_here.count(pair)
+                raise HTTPException(401, "名称或密码不对")
+            failures_of_name_here.forget(pair)
+            response.headers["Cache-Control"] = "no-store"
+            await signed_in(user.id, response, request)
 
     if settings.guest_login:
 

@@ -34,6 +34,7 @@ from eidolon.live_config import (
     LIMITS,
     MEMORY_LLM,
     LETTERS,
+    OWN_KEYS,
     MOMENTS,
     PROXY,
     QWEATHER,
@@ -218,6 +219,13 @@ class LettersInput(BaseModel):
     enabled: Any
 
 
+class OwnKeysSwitchInput(BaseModel):
+    """Whether users may bring their own API keys, true or false; checked by the live
+    configuration."""
+
+    enabled: Any
+
+
 class MomentsInput(BaseModel):
     """Whether characters post moments, true or false, how many a day each user at most, a
     whole number from 1 up, which map their places link to, and how many of each user's
@@ -317,6 +325,7 @@ INPUTS: dict[str, type[BaseModel]] = {
     PROXY: ProxyInput,
     SERVICE_STATUS: ServiceStatusInput,
     REGISTRATION: RegistrationInput,
+    OWN_KEYS: OwnKeysSwitchInput,
 }
 
 

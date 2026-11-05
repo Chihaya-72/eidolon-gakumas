@@ -35,6 +35,7 @@ from eidolon.config import Registration, Settings
 from eidolon.identity import Identity
 from eidolon.invites import Invites, NotInvited
 from eidolon.memory import Memories
+from eidolon.passwords import Hasher, WantedName
 from eidolon.store import Admit, IdentityTaken, SignInMethod, Store, User
 
 async def is_admin(store: Store, settings: Settings, user_id: str) -> bool:
@@ -91,9 +92,43 @@ class Accounts:
     secret_key: str | None = None
     """The deployment's, from which the key the ban list is hashed with is derived."""
     _ban_key: bytes | None = field(init=False, repr=False)
+    _hasher: Hasher = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
         self._ban_key = _ban_list_key(self.secret_key) if self.secret_key else None
+        self._hasher = Hasher()
+
+    async def register(self, wanted: WantedName, password: str, invite: str | None) -> User:
+        """A new user who signs in with a name and a password. Whoever claims admin signs up
+        without an invite link, as the deployment's first user does. Raises SignInRefused,
+        UsernameTaken or AdminClaimed."""
+        if await self.store.is_banned_identity(self._password_identity(wanted.key)):
+            raise SignInRefused("banned")
+        admit = (
+            None if self.registration() == "open" or wanted.claims_admin
+            else self.invites.admit(invite)
+        )
+        hashed = await self._hasher.hashed(password)
+        try:
+            return await self.store.create_password_user(
+                wanted.name, wanted.key, hashed, wanted.claims_admin, admit
+            )
+        except NotInvited as e:
+            raise SignInRefused(e.reason) from None
+
+    async def sign_in_with_password(self, key: str | None, password: str) -> User | None:
+        """The user with this name and password, None if there is none. Raises SignInRefused
+        if they are banned, which only one who knows the password learns."""
+        found = await self.store.password_login(key) if key else None
+        if not await self._hasher.matches(password, found[1] if found else None) or not found:
+            return None
+        user = await self.store.get_user(found[0])
+        if user.banned_at is not None:
+            raise SignInRefused("banned")
+        return user
+
+    def _password_identity(self, key: str) -> str:
+        return identity_hash(self._ban_key, "password", key)
 
     async def sign_in(self, identity: Identity, invite: str | None = None) -> User:
         """The user this identity signs in as, made the first time, through the invite link
@@ -144,10 +179,11 @@ class Accounts:
         list."""
         await self.calls.hang_up(user_id)
         await self.memories.forget(user_id)
+        username = await self.store.username_key_of(user_id)
         await self.store.delete_user(user_id, [
             identity_hash(self._ban_key, m.provider, m.subject)
             for m in await self.store.sign_in_methods(user_id)
-        ])
+        ] + ([self._password_identity(username)] if username else []))
         await self.calls.hang_up(user_id)  # any placed while memory was settling
 
     async def _check(self, identity: Identity) -> None:

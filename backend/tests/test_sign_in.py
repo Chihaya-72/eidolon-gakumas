@@ -72,6 +72,7 @@ async def test_the_first_sign_in_with_github_makes_a_user_and_signs_them_in(
         "letters": False,
         "sponsor_version": None,
         "deployer_tts": True,
+        "own_keys_allowed": True,
     }
 
 
@@ -207,7 +208,7 @@ async def test_only_configured_providers_are_offered(
     github_only = make_client(FakeLLM(), user=None, identity_providers={"github": github})
 
     assert (await both.get("/api/auth/providers")).json() == {
-        "providers": ["github", "google"], "dev_login": True, "guest_login": False,
+        "providers": ["github", "google"], "dev_login": True, "guest_login": False, "password_login": False,
         "contact": None,
     }
     assert (await github_only.get("/api/auth/providers")).json()["providers"] == ["github"]

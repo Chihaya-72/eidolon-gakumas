@@ -528,6 +528,7 @@ describe("cycles and the bar", () => {
   it("are cards of limits and play: letters and moments after reach-outs, cycles and the bar after the schedule", () => {
     expect(TAB_ITEMS.limits).toEqual([
       "limits",
+      "own_keys",
       "affinity",
       "reach_outs",
       "letters",
