@@ -7,18 +7,24 @@
 // no entry in the history, so going back does not land on the old address again.
 
 import { NextResponse, type NextRequest } from "next/server";
+import { needsAccessCheck } from "@/lib/access";
 import { contentSecurityPolicy } from "@/lib/contentSecurityPolicy";
 import { playRedirect } from "@/lib/playRoute";
 import { settingsRedirect } from "@/lib/settingsCategory";
 import { BACKEND_URL } from "@/lib/backend";
 
+/** A backend that does not answer soon fails closed, as one that is down does. */
+const ACCESS_CHECK_TIMEOUT_MS = 5000;
+
 export async function proxy(request: NextRequest) {
-  if (request.nextUrl.pathname !== "/access" && request.nextUrl.pathname !== "/favicon.ico") {
+  if (needsAccessCheck(request.nextUrl.pathname)) {
     try {
       const headers = new Headers({ cookie: request.headers.get("cookie") ?? "" });
       const ip = request.headers.get("x-eidolon-client-ip");
       if (ip) headers.set("x-eidolon-client-ip", ip);
-      const checked = await fetch(`${BACKEND_URL}/api/access/status`, { headers, cache: "no-store" });
+      const checked = await fetch(`${BACKEND_URL}/api/access/status`, {
+        headers, cache: "no-store", signal: AbortSignal.timeout(ACCESS_CHECK_TIMEOUT_MS),
+      });
       if (!checked.ok) throw new Error("Access check failed");
       const state = await checked.json();
       if (!state.passed) {

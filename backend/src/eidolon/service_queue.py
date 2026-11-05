@@ -2,7 +2,8 @@
 
 Tickets and reservations live on the event loop; only six-hour usage survives a restart.
 Claiming a ticket reserves the slot, but records no use until the operation has passed
-its own quota/availability checks and calls ``Lease.start``. A request without a ticket
+its own quota/availability checks and calls ``Lease.start``; a browser reservation that
+reaches the slot and is given up unused counts as one use. A request without a ticket
 waits in this very same queue. Browser hints about whose keys are used are never trusted.
 """
 
@@ -23,6 +24,8 @@ QueueState = Literal["waiting", "ready", "running"]
 WINDOW = timedelta(hours=6)
 WAIT_TTL = timedelta(seconds=60)
 READY_TTL = timedelta(seconds=15)
+MAX_PENDING_TICKETS = 5
+"""Browser tickets one user may have waiting or ready at once, across all operations."""
 
 # Set by the HTTP boundary; background work must explicitly supply its own resource,
 # which prevents it from inheriting (and replaying) its parent's ticket.
@@ -128,6 +131,12 @@ class ServiceQueue:
                     if ticket.state != "running":
                         ticket.touched = self._clock()
                         return await self._shown(ticket)
+            pending = sum(
+                t.user_id == user_id and not t.internal and t.state != "running"
+                for t in self._tickets.values()
+            )
+            if pending >= MAX_PENDING_TICKETS:
+                raise QueueError("排队中的操作太多，请稍后再试", 429)
             ticket = self._new(user_id, kind, resource)
             await self._dispatch()
             return await self._shown(ticket)
@@ -148,7 +157,7 @@ class ServiceQueue:
             ticket = self._find(ticket_id, user_id)
             if ticket.state == "running":
                 raise QueueError("服务已经开始，请在当前操作中结束", 409)
-            self._drop(ticket)
+            await self._forfeit(ticket)
             await self._dispatch()
 
     async def acquire(
@@ -176,7 +185,7 @@ class ServiceQueue:
                     if ticket.state != "ready":
                         raise QueueError("尚未轮到此操作，或票据已经使用", 409)
                     if bypass:
-                        self._drop(ticket)
+                        await self._forfeit(ticket)
                         await self._dispatch()
                         return Lease()
                 elif bypass:
@@ -208,7 +217,7 @@ class ServiceQueue:
         except BaseException:
             if ticket is not None and ticket.state != "running":
                 async with self._lock:
-                    self._drop(ticket)
+                    await self._forfeit(ticket)
                     await self._dispatch()
             raise
 
@@ -270,6 +279,15 @@ class ServiceQueue:
             self._occupied = None
         ticket.event.set()
 
+    async def _forfeit(self, ticket: _Ticket) -> None:
+        """Give a ticket up. A browser reservation that held the only slot and went unused
+        counts as a use, so that reserving again and again cannot keep someone first."""
+        held = ticket.state == "ready" and not ticket.internal
+        current = self._tickets.get(ticket.id) is ticket
+        self._drop(ticket)
+        if held and current and await self._active(ticket.user_id):
+            await self._db.write(_count, ticket.user_id, ticket.kind, self._clock().timestamp())
+
     async def _ordered(self) -> list[_Ticket]:
         counts = await self.counts()
         priorities = {}
@@ -301,7 +319,9 @@ class ServiceQueue:
                 ticket.state == "ready" and not ticket.internal
                 and ticket.ready_at is not None and now - ticket.ready_at >= READY_TTL
             )
-            if expired or (ticket.state != "running" and not await self._active(ticket.user_id)):
+            if expired:
+                await self._forfeit(ticket)
+            elif ticket.state != "running" and not await self._active(ticket.user_id):
                 self._drop(ticket)
         if self._occupied is not None or self._closed:
             return

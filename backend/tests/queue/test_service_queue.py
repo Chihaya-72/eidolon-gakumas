@@ -7,7 +7,9 @@ from pathlib import Path
 import pytest
 
 from eidolon.data_access import Database
-from eidolon.service_queue import QueueError, QueueKind, ServiceQueue, queue_request, queue_request_active
+from eidolon.service_queue import (
+    MAX_PENDING_TICKETS, QueueError, QueueKind, ServiceQueue, queue_request, queue_request_active,
+)
 
 
 class Clock:
@@ -120,9 +122,12 @@ async def test_reserving_canceling_and_being_refused_records_no_use(deployment: 
     lease = await d.claim(ticket, "a")
     await lease.release()  # failed validation before upstream service began
     assert await d.queue.counts() == {}
+    held = await d.queue.acquire("c", "turn")
     ticket = await d.queue.enqueue("b", "turn", "/api/x")
+    assert ticket["state"] == "waiting"
     await d.queue.cancel(ticket["id"], "b")
     assert await d.queue.counts() == {}
+    await held.release()
 
 
 async def test_start_and_release_are_idempotent_and_upstream_failure_keeps_use(deployment: Deployment):
@@ -331,3 +336,66 @@ async def test_deleted_user_role_lookup_cannot_break_dispatch_or_release(deploym
     assert (await d.queue.status(next_ticket["id"], "b"))["state"] == "ready"
     with pytest.raises(QueueError):
         await d.queue.status(deleted["id"], "a")
+
+
+async def test_a_reservation_given_up_after_reaching_the_slot_counts_as_a_use(
+    deployment: Deployment,
+):
+    d = deployment
+    expired = await d.queue.enqueue("a", "turn", "/api/x")
+    assert expired["state"] == "ready"
+    d.clock.advance(seconds=15)
+    canceled = await d.queue.enqueue("b", "turn", "/api/x")
+    assert canceled["state"] == "ready"
+    assert await d.queue.counts() == {"a": 1}
+    await d.queue.cancel(canceled["id"], "b")
+    assert await d.queue.counts() == {"a": 1, "b": 1}
+    bypassed = await d.queue.enqueue("c", "turn", "/api/x")
+    await d.claim(bypassed, "c", bypass=True)
+    assert await d.queue.counts() == {"a": 1, "b": 1, "c": 1}
+    mismatched = await d.queue.enqueue("admin", "turn", "/api/x")
+    with pytest.raises(QueueError):
+        await d.claim(mismatched, "admin", resource="/api/other")
+    assert (await d.queue.counts())["admin"] == 1
+
+
+async def test_repeatedly_abandoning_reservations_loses_priority(deployment: Deployment):
+    d = deployment
+    first = await d.queue.enqueue("a", "turn", "/api/x")
+    assert first["state"] == "ready"
+    d.clock.advance(seconds=15)
+    held = await d.queue.acquire("c", "turn")
+    # "a" abandoned one reservation, so "b" goes first though it arrived later.
+    again = await d.queue.enqueue("a", "turn", "/api/x")
+    honest = await d.queue.enqueue("b", "turn", "/api/x")
+    assert (await d.queue.status(honest["id"], "b"))["position"] == 1
+    assert (await d.queue.status(again["id"], "a"))["position"] == 2
+    await held.release()
+
+
+async def test_one_user_cannot_hold_more_than_the_pending_ticket_limit(deployment: Deployment):
+    d = deployment
+    held = await d.queue.acquire("c", "turn")
+    tickets = [
+        await d.queue.enqueue("a", "bar", f"/api/bar/visits/{i}/serves")
+        for i in range(MAX_PENDING_TICKETS)
+    ]
+    # Retrying a pending resource is no new ticket; a new resource over the limit is refused.
+    assert (await d.queue.enqueue("a", "bar", "/api/bar/visits/0/serves"))["id"] == tickets[0]["id"]
+    with pytest.raises(QueueError) as error:
+        await d.queue.enqueue("a", "bar", "/api/bar/visits/over/serves")
+    assert error.value.status == 429
+    assert (await d.queue.enqueue("b", "turn", "/api/x"))["state"] == "waiting"
+    await d.queue.cancel(tickets[0]["id"], "a")
+    assert (await d.queue.enqueue("a", "bar", "/api/bar/visits/over/serves"))["state"] == "waiting"
+    await held.release()
+
+
+async def test_a_deleted_users_expired_reservation_records_nothing(deployment: Deployment):
+    d = deployment
+    expired = await d.queue.enqueue("a", "turn", "/api/x")
+    assert expired["state"] == "ready"
+    d.active.discard("a")
+    d.clock.advance(seconds=15)
+    assert (await d.queue.enqueue("b", "turn", "/api/x"))["state"] == "ready"
+    assert await d.queue.counts() == {}
