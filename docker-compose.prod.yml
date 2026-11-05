@@ -13,6 +13,7 @@ x-logging: &logging
     max-size: 10m
     max-file: "5"
 
+services:
   # 后端不用 root 运行（UID 10001）。这一步用 root 把数据卷交给它：旧数据卷里的文件是 root 的。跑完就退出
   backend-init:
     image: ghcr.io/chihaya-72/eidolon-gakumas-backend:${EIDOLON_IMAGE_TAG:-main}

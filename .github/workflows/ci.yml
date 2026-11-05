@@ -65,6 +65,16 @@ jobs:
       - run: shellcheck deploy/*.sh scripts/*.sh frontend/scripts/*.sh
       # wayfinder 地图的票：已解决的有结论、Blocked by 的票号存在、地图链接到它（docs/agents/issue-tracker.md）
       - run: sh scripts/check-scratch.sh
+      # 两份 compose 文件都能解析：写错了只有部署时才会发现
+      - name: Check compose files
+        env:
+          EIDOLON_DOMAIN: example.com
+          EIDOLON_TURN_SECRET: check
+          EIDOLON_PUBLIC_IP: 192.0.2.1
+        run: |
+          touch .env
+          docker compose -f docker-compose.prod.yml config -q
+          docker compose -f docker-compose.yml config -q
 
   # 和检查同时跑，只构建、不推送，层写进 GitHub Actions 的缓存
   image:
