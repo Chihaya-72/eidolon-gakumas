@@ -288,6 +288,7 @@ async def test_the_input_read_from_the_cache_is_priced_at_the_cache_price_where_
 
 
 async def test_prices_are_for_admins_only(make_client: ClientFactory, settings: Settings):
+    make_client(FakeLLM(), "first-admin")
     client = make_client(FakeLLM())
 
     assert (await client.get("/api/admin/prices")).status_code == 404

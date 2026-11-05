@@ -19,10 +19,12 @@ from tests.fakes import (
     FakeIdentityProvider,
     FakeImageService,
     FakeLLM,
+    FakeLLMService,
     FakeServiceClients,
     OpenAIAnswer,
 )
 from tests.test_live_config import CONFIG, admin_client, recorded
+from tests.test_own_llm import LLM
 from tests.test_photo_failures import tagged
 from tests.test_photos import (  # noqa: F401  (`settings`, with the deployer's image generation)
     IMAGE,
@@ -152,26 +154,30 @@ def test_env_refuses_a_format_not_known_or_too_many_at_a_time(
         ImageSettings.from_env()
 
 
-async def test_the_deployers_key_generates_as_many_at_a_time_as_it_is_set_to(
-    make_client: ClientFactory, settings: Settings
+async def test_shared_photos_are_serial_even_with_higher_image_concurrency(
+    make_client: ClientFactory, settings: Settings, own_llm: FakeLLMService
 ):
     image = FakeImageService()
     image.gate = asyncio.Event()
     outfits = ["red dress", "school uniform", "hoodie"]
+    own_llm.llm = FakeLLM(*(tagged(o) for o in outfits))
     client = make_client(
-        FakeLLM(*(tagged(o) for o in outfits)), clients=asking(),
+        FakeLLM(), clients=asking(),
         settings=replace(settings, image=replace(IMAGE, concurrency=2)),
         image_transport=image.transport(),
     )
     conversation = await start_conversation(client)
 
-    photos = [photo_events(await send_turn(client, conversation, ASKED))[0] for _ in outfits]
+    photos = [
+        photo_events(await send_turn(client, conversation, ASKED, own_llm=LLM))[0]
+        for _ in outfits
+    ]
     await asyncio.sleep(0.05)
     at_once = len(image.requests)
     image.gate.set()
     came_out = [await settled(client, p["id"]) for p in photos]
 
-    assert at_once == 2
+    assert at_once == 1
     assert came_out == [{"status": "ready", "reason": None}] * 3
 
 

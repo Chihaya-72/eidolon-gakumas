@@ -19,9 +19,10 @@ import pytest
 from eidolon.config import Settings
 from tests.browser import TIMEOUT, Browser, open_browser
 from tests.conftest import ClientFactory
-from tests.fakes import FAKE_JUDGE, FakeClock, FakeLLM, FakeServiceClients, FakeSpeech
+from tests.fakes import FAKE_JUDGE, FakeClock, FakeLLM, FakeLLMService, FakeServiceClients, FakeSpeech
 from tests.test_conversation_events import record, shape
 from tests.test_delete_account import DELETE
+from tests.test_own_llm import LLM
 from tests.test_she_hangs_up import OUT_OF_LINE
 from tests.test_stats import REPLY, TODAY, stats, tokyo
 from tests.test_text_turn import send_turn, start_conversation
@@ -109,10 +110,12 @@ async def test_a_call_that_connected_counts_for_as_long_as_its_record_says_and_o
 
 
 async def test_a_call_she_hangs_up_as_she_ends_the_conversation_elsewhere_counts(
-    make_client: ClientFactory, settings: Settings, speech: FakeSpeech, clock: FakeClock
+    make_client: ClientFactory, settings: Settings, speech: FakeSpeech, clock: FakeClock,
+    own_llm: FakeLLMService,
 ):
     clients = FakeServiceClients()
     clients.judge.judgings = [OUT_OF_LINE, OUT_OF_LINE]
+    own_llm.llm = FakeLLM(REPLY, REPLY)
     client = make_client(
         FakeLLM(REPLY, REPLY), clients=clients, clock=clock,
         settings=replace(settings, judge=FAKE_JUDGE, affinity_and_gifts=True),
@@ -123,7 +126,7 @@ async def test_a_call_she_hangs_up_as_she_ends_the_conversation_elsewhere_counts
         await browser.call(client, conversation_id=conversation)
         await browser.connect()
         for text in ("第一句", "第二句"):
-            await send_turn(client, conversation, text)
+            await send_turn(client, conversation, text, own_llm=LLM)
         assert (await browser.next_server_message("ended"))["reason"] == "she_hung_up"
         await browser.hung_up()
 

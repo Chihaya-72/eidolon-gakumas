@@ -111,6 +111,7 @@ async def test_with_only_turns_set_calls_follow_the_deployments(
     await set_limits(admin, (await find(admin, "producer"))["id"], turns_per_hour="unlimited")
     async with open_browser() as first:
         assert (await first.call(producer, conversation_id=conversation_id)).status_code == 200
+        await first.connect()
 
     async with open_browser() as second:
         refused = await second.call(producer, conversation_id=conversation_id)

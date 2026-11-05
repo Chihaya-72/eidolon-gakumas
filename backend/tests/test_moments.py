@@ -286,6 +286,7 @@ async def test_the_plan_is_read_again_after_a_restart_but_what_came_while_down_i
 async def test_one_due_she_is_no_longer_to_post_is_passed_over_unrecorded(
     make_client: ClientFactory, settings: Settings, github: FakeIdentityProvider, why: str
 ):
+    make_client(FakeLLM(), "first-admin")
     client, llm, clock, conversation = await talked(
         make_client, POST, settings=replace(settings, judge=FAKE_JUDGE)
     )

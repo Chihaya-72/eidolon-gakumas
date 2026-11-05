@@ -228,6 +228,7 @@ async def test_an_admin_is_told_the_models_on_the_key_in_effect_at_its_own_addre
 
 
 async def test_only_an_admin_may_ask_for_the_deployers(make_client: ClientFactory):
+    make_client(FakeLLM(), "first-admin")
     user = make_client(FakeLLM())
 
     asked = await user.post(ADMIN, json={"protocol": "chat-completions", "base_url": "http://llm.invalid/v1"})

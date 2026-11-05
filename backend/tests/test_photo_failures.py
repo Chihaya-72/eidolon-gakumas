@@ -229,6 +229,7 @@ async def test_one_whose_reply_is_gone_by_the_time_it_comes_out_is_not_kept(
     conversation = await start_conversation(client)
 
     [photo] = photo_events(await send_turn(client, conversation, ASKED))
+    await until(lambda: image.requests)  # delete while generation is already in flight
     if gone == "past conversation deleted":
         hang_up(settings.database_path, conversation)
         assert await start_conversation(client) != conversation

@@ -218,6 +218,7 @@ async def test_what_is_not_a_png_jpeg_or_webp_or_too_large_is_refused_keeping_th
 
 
 async def test_only_admins_set_it(make_client: ClientFactory, github: FakeIdentityProvider):
+    make_client(FakeLLM(), "first-admin")
     user = make_client(FakeLLM())
 
     assert (await user.get("/api/admin/sponsor")).status_code == 404

@@ -27,6 +27,7 @@ from tests.fakes import (
     FakeClock,
     FakeIdentityProvider,
     FakeLLM,
+    FakeLLMService,
     FakeServiceClients,
     level,
 )
@@ -45,6 +46,7 @@ from tests.test_call_turns import (  # noqa: F401
     without_emotions,
 )
 from tests.test_conversation_events import record, shape
+from tests.test_own_llm import LLM
 from tests.test_she_hangs_up import record_of
 from tests.test_text_turn import send_turn, start_conversation
 
@@ -65,10 +67,12 @@ async def test_a_cooldown_begun_elsewhere_has_her_hang_up_an_idle_call(
     make_client: ClientFactory,
     settings: Settings,
     github: FakeIdentityProvider,
+    own_llm: FakeLLMService,
 ):
     clock = FakeClock()
     clients = FakeServiceClients()
     clients.judge.judgings = [level(0)]
+    own_llm.llm = FakeLLM(REPLY)
     client = make_client(FakeLLM(REPLY), clients=clients, clock=clock)
     in_call = await start_conversation(client)
     elsewhere = await start_conversation(client)
@@ -77,7 +81,7 @@ async def test_a_cooldown_begun_elsewhere_has_her_hang_up_an_idle_call(
     async with admin_beside(client, github) as admin, open_browser() as mano:
         await mano.call(client, conversation_id=in_call)
         await mano.connect()
-        await send_turn(client, elsewhere, "随便你")
+        await send_turn(client, elsewhere, "随便你", own_llm=LLM)
         ended = await mano.next_server_message("ended")
         await mano.hung_up()
         board = await call_recorded(admin)

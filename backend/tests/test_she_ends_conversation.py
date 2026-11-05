@@ -35,6 +35,7 @@ from tests.fakes import (
     FAKE_JUDGE,
     FakeClock,
     FakeLLM,
+    FakeLLMService,
     FakeRandom,
     FakeServiceClients,
     FakeSpeech,
@@ -46,6 +47,7 @@ from tests.test_affinity_cooldown import PARTING, UNTIL, ask_before_calling
 from tests.test_affinity_prompt import about_now
 from tests.test_conversation_events import record, shape
 from tests.test_gift_backpack import RESET_CARD
+from tests.test_own_llm import LLM
 from tests.test_reset_cards import USE
 from tests.test_she_hangs_up import HANGING_UP, OUT_OF_LINE, say
 from tests.test_she_hangs_up import WARNING as HANG_UP_WARNING
@@ -372,16 +374,19 @@ async def test_a_turn_under_way_as_it_is_ended_elsewhere_is_rejected_and_counts_
 
 
 async def test_a_call_in_it_as_she_ends_it_she_hangs_up_telling_it_she_ended_it(
-    make_client: ClientFactory, settings: Settings, speech: FakeSpeech
+    make_client: ClientFactory, settings: Settings, speech: FakeSpeech, own_llm: FakeLLMService
 ):
-    client, _ = client_judging(make_client, [OUT_OF_LINE, OUT_OF_LINE])
+    client, llm = client_judging(make_client, [OUT_OF_LINE, OUT_OF_LINE])
+    own_llm.llm = llm
     conversation = await start_conversation(client)
 
     async with open_browser() as browser:
         await browser.call(client, conversation_id=conversation)
         await browser.connect()
         assert browser.pc_id is not None
-        typed = await say_each(client, conversation, 2)
+        typed = [
+            await send_turn(client, conversation, f"第{i}句", own_llm=LLM) for i in range(2)
+        ]
         ended = await browser.next_server_message("ended")
         await browser.hung_up()
         await until_gone(client, browser.pc_id)  # settled, its activity record kept
