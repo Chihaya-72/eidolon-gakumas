@@ -74,6 +74,8 @@ docker compose -f docker-compose.prod.yml up -d
 
 不用自带的 Caddy、自己配反向代理（nginx 等）的，要给 `/api/account/data-package` 这一个地址放开请求体的大小上限到 200 MiB：用户导入的数据包就是这个地址的请求体，nginx 默认只放 1 MB（`client_max_body_size 200m;`）。后端自己也会拒绝超过 200 MiB 的数据包。
 
+使用 Cloudflare 橙云 CDN 直接回源时，自带 Caddyfile 会从可信 CF 节点的 `CF-Connecting-IP` 读取访客真实 IP，使密码门禁按访客 IP 计数和封禁。升级时要同步 Caddyfile 并校验、重载；CF 请求头设置、网段维护和误封恢复见[使用 Cloudflare CDN](admin-access-queue.md#使用-cloudflare-cdn)。
+
 下面的命令都要带上 `-f docker-compose.prod.yml`。嫌麻烦的话，在这台服务器上执行一次 `export COMPOSE_FILE=docker-compose.prod.yml`（或者写进 shell 的配置文件），之后 README 和配置指南里的 `docker compose ...` 命令就能原样使用。
 
 ## 同步剧情库

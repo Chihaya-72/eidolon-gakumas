@@ -10,6 +10,21 @@
 
 生产部署需使用更新后的 `deploy/Caddyfile`：Caddy 覆写 `X-Eidolon-Client-IP`，Next.js 转发，后端仅接受来自本机受控代理的这个头。前后端生产监听地址保持 `127.0.0.1`。自己使用其他反向代理时也必须覆写这个头，不能透传客户端传入值。
 
+### 使用 Cloudflare CDN
+
+自带 Caddyfile 已配置 Cloudflare 官方 IPv4、IPv6 回源网段为可信代理，仅从这些连接的 `CF-Connecting-IP` 解析访客 IP，再用 `{client_ip}` 覆写 `X-Eidolon-Client-IP`。直连源站时仍使用连接 IP，不能靠伪造请求头改变封禁对象。这个配置适用于 Cloudflare 橙云直接回源 Caddy；使用 Cloudflare Tunnel 或前面还有其他代理时，需要另行配置可信代理链。
+
+Cloudflare 必须保留访客 IP 请求头：不要启用 **Remove visitor IP headers**；**Pseudo IPv4** 使用 Off 或 Add Header，避免 Overwrite Headers 把真实 IPv6 替换为合成 IPv4。CF 调整回源网段后，按 [IPv4 列表](https://www.cloudflare.com/ips-v4/)和 [IPv6 列表](https://www.cloudflare.com/ips-v6/)同步更新 Caddyfile（当前核对日期：2026-11-05）。解析规则见 [Caddy 可信代理文档](https://caddyserver.com/docs/caddyfile/options#trusted_proxies)，请求头行为见 [Cloudflare 文档](https://developers.cloudflare.com/fundamentals/reference/http-headers/)。
+
+把更新后的 `deploy/Caddyfile` 同步到服务器后，先校验再重载：
+
+```sh
+docker compose -f docker-compose.prod.yml exec caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+docker compose -f docker-compose.prod.yml exec caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+```
+
+旧配置使用 `{remote_host}` 时，可能已经按 CF 节点 IP 累计错误次数或产生误封。修正配置不会自动删除这些记录；误封可在后台访问黑名单中解除，进不了后台时使用下面的恢复命令。
+
 无法进入后台时，在服务器中恢复（`--db` 可指定数据库）：
 
 ```sh
