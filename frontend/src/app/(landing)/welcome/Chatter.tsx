@@ -38,8 +38,8 @@ const CALL_AT = 46;
 
 /** 第 n 句（从 0 数）之后隔多久说下一句：先慢慢说，散开以后一句比一句快。 */
 export function delayAfter(n: number): number {
-  if (n < COLUMN) return 1050;
-  return Math.max(55, 620 * 0.9 ** (n - COLUMN));
+  if (n < COLUMN) return 720;
+  return Math.max(40, 430 * 0.9 ** (n - COLUMN));
 }
 
 /** 第 n 句是谁说的：一列的时候她说两句、制作人回一句；散开以后大多是她。 */
@@ -110,7 +110,7 @@ export function Chatter({ idol, copy, active, reduced }: { idol: WelcomeIdol; co
       setSaid(counters.current.n);
       timer = window.setTimeout(tick, delayAfter(bubble.key));
     };
-    timer = window.setTimeout(tick, 350);
+    timer = window.setTimeout(tick, 250);
     return () => window.clearTimeout(timer);
   }, [active, reduced, idol, copy]);
 
