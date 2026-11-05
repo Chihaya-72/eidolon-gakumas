@@ -10,7 +10,7 @@ import pytest
 
 from eidolon.config import Settings
 from eidolon.llm import ChatMessage
-from eidolon.reply_format import FORMAT_INSTRUCTIONS
+from eidolon.reply_format import FORMAT_INSTRUCTIONS, JAPANESE_ONLY_REMINDER
 from tests.conftest import ClientFactory
 from tests.fakes import (
     FakeBackgroundLLM,
@@ -61,6 +61,22 @@ async def test_what_changes_each_turn_comes_after_the_history(make_client: Clien
     assert [m.role for m in rest] == ["user", "assistant", "system", "user"]
     assert rest[-2].content.startswith("# 此刻\n现在是 ")
     assert "现在是" not in "".join(m.content for m in rest if m.role != "system")
+
+
+async def test_she_is_reminded_to_keep_chinese_out_of_her_japanese_right_before_the_latest_words(
+    make_client: ClientFactory,
+):
+    llm = FakeLLM(reply(1), reply(2))
+    client = make_client(llm)
+    await client.put("/api/profile", json=PROFILE)
+    conversation = await start_conversation(client)
+
+    await send_turn(client, conversation, "第1句")
+    await send_turn(client, conversation, "第2句")
+
+    *_, context, latest = llm.prompts[-1]
+    assert context.role == "system" and context.content.endswith(JAPANESE_ONLY_REMINDER)
+    assert latest.role == "user" and latest.content.endswith("第2句")
 
 
 async def test_a_turn_opens_as_the_turn_before_it_did(make_client: ClientFactory):
