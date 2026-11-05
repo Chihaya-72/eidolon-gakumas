@@ -75,6 +75,7 @@ from eidolon.config import (
     DEFAULT_JEV_BASE_URL,
     FISH_AUDIO_MODELS,
     BailianJudgeSettings,
+    GuestLimits,
     CloudflareJudgeSettings,
     GptImageSettings,
     ImageSettings,
@@ -169,6 +170,7 @@ QWEATHER = "qweather"
 SERVICE_STATUS = "service_status"
 REGISTRATION = "registration"
 OWN_KEYS = "own_keys"
+GUEST_LIMITS = "guest_limits"
 
 LLM_FIELDS = (
     "protocol", "base_url", "api_key", "model", "max_tokens", "reasoning_effort", "extra_body",
@@ -660,7 +662,7 @@ class _JudgeThresholds(_Item):
     name = JUDGE_THRESHOLDS
     fields = ("recall", "emotion", "out_of_line", "manipulation", "photo")
     stored = (FOR_MODEL,)
-    unavailable_reason = "尚未配置判断模型，请在管理员设置的公用 API 中保存配置后重启后端"
+    unavailable_reason = "尚未配置判断模型，请在后台的公用 API 中保存配置后重启后端"
 
     def available(self) -> bool:
         return self.c.judge_settings is not None
@@ -776,7 +778,7 @@ class _Affinity(_Item):
     name = AFFINITY
     fields = ("enabled",)
     unavailable_reason = (
-        "好感度需要判断模型；请在管理员设置的公用 API 中配置判断模型后重启后端"
+        "好感度需要判断模型；请在后台的公用 API 中配置判断模型后重启后端"
     )
 
     def available(self) -> bool:
@@ -841,6 +843,22 @@ class _OwnKeys(_Item):
     def candidate(self, current: Values, change: Values) -> Values:
         if not isinstance(change.get("enabled"), bool):
             raise ConfigInvalid(f"自带密钥需要是 true 或 false，而不是 {change.get('enabled')!r}")
+        return current | change
+
+
+class _GuestLimits(_Item):
+    """What guests may use (`GuestLimits`), each a whole number, 0 for none; not tried."""
+
+    name = GUEST_LIMITS
+    fields = tuple(GuestLimits.__dataclass_fields__)
+
+    def env(self) -> Values:
+        return asdict(GuestLimits())
+
+    def candidate(self, current: Values, change: Values) -> Values:
+        for field, value in change.items():
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise ConfigInvalid(f"游客限额 {field} 需要是非负整数，而不是 {value!r}")
         return current | change
 
 
@@ -1171,7 +1189,7 @@ class LiveConfig:
                 _Proxy(self), _ChatLLM(self), _MemoryLLM(self), _TTS(self), _STT(self),
                 _Image(self), _GptImage(self), _Judge(self), _JudgeThresholds(self), _Rerank(self),
                 _Limits(self), _Affinity(self), _ReachOuts(self), _Letters(self), _Moments(self), _QWeather(self), _Schedule(self),
-                _Cycles(self), _Bar(self), _ServiceStatus(self), _Registration(self), _OwnKeys(self),
+                _Cycles(self), _Bar(self), _ServiceStatus(self), _Registration(self), _OwnKeys(self), _GuestLimits(self),
             )
         }
         self._failures: dict[str, str] = {}
@@ -1414,6 +1432,11 @@ class LiveConfig:
         if settings is None or self.image_settings is None:
             return None
         return GptImageGenerator(settings, self._gpt_images)
+
+    @property
+    def guest_limits(self) -> GuestLimits:
+        """What guests may use now."""
+        return GuestLimits(**self.effective(GUEST_LIMITS))
 
     @property
     def own_keys_on(self) -> bool:

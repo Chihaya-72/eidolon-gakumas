@@ -4,6 +4,8 @@ users' own API keys."""
 from dataclasses import replace
 from pathlib import Path
 
+import pytest
+
 from eidolon.config import Settings
 from eidolon.passwords import ADMIN_SUFFIX
 from tests.conftest import ClientFactory, agree_to_terms, store_in
@@ -201,3 +203,55 @@ async def test_a_plain_user_cannot_flip_the_switch(make_client: ClientFactory, s
     await agree_to_terms(client)
     response = await client.put("/api/admin/config/own_keys", json={"enabled": False})
     assert response.status_code in (403, 404)
+
+
+async def guest(make_client: ClientFactory, settings: Settings):
+    client = make_client(FakeLLM(), user=None, settings=replace(settings, guest_login=True))
+    assert (await client.post("/api/auth/guest-login")).status_code == 204
+    await agree_to_terms(client)
+    return client, (await client.get("/api/account")).json()["id"]
+
+
+async def test_guests_have_their_own_limit_and_a_shared_one(
+    make_client: ClientFactory, settings: Settings
+):
+    from eidolon.config import GuestLimits
+    from eidolon.usage import OverLimit
+
+    client, first = await guest(make_client, settings)
+    backend = backend_of(client)
+    second = (await backend.store.guest_user(None))[0].id
+    await backend.config.save("guest_limits", {"turns_per_hour": 2, "calls_per_hour": 0, "all_guests_per_hour": 3})
+    assert backend.config.guest_limits.turns_per_hour == 2
+    assert GuestLimits().calls_per_hour == 0
+    usage = backend.usage
+    await usage.take(first, "turn")
+    await usage.take(first, "turn")
+    with pytest.raises(OverLimit):
+        await usage.take(first, "turn")
+    with pytest.raises(OverLimit):
+        await usage.take(first, "call")
+    await usage.take(second, "turn")  # the third of all guests'
+    with pytest.raises(OverLimit):
+        await usage.take(second, "turn")
+    await usage.take(second, "turn", exempt=True)  # on their own keys
+    member = await backend.store.create_user("member")
+    await usage.take(member.id, "turn")
+
+
+async def test_new_guests_per_address_are_limited(make_client: ClientFactory, settings: Settings):
+    client = make_client(FakeLLM(), user=None, settings=replace(settings, guest_login=True))
+    for _ in range(3):
+        client.cookies.clear()
+        assert (await client.post("/api/auth/guest-login")).status_code == 204
+    kept = dict(client.cookies)
+    client.cookies.clear()
+    refused = await client.post("/api/auth/guest-login")
+    assert refused.status_code == 429 and "retry-after" in refused.headers
+    client.cookies.update(kept)  # the same browser comes back
+    assert (await client.post("/api/auth/logout")).status_code == 204
+    assert (await client.post("/api/auth/guest-login")).status_code == 204
+    backend = backend_of(client)
+    await backend.config.save("guest_limits", {"new_guests_per_address_per_hour": 0})
+    client.cookies.clear()
+    assert (await client.post("/api/auth/guest-login")).status_code == 403

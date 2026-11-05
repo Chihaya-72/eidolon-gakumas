@@ -1,6 +1,24 @@
 services:
+  # 后端不用 root 运行（UID 10001）。这一步用 root 把数据卷交给它：旧数据卷里的文件是 root 的。跑完就退出
+  backend-init:
+    build: ./backend
+    user: root
+    network_mode: none
+    entrypoint: ["chown", "-R", "10001:10001", "/data"]
+    volumes:
+      - eidolon-data:/data
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
+    security_opt: ["no-new-privileges:true"]
+    restart: "no"
+
   backend:
     build: ./backend
+    depends_on:
+      backend-init:
+        condition: service_completed_successfully
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
     env_file: .env
     volumes:
       - eidolon-data:/data
@@ -15,6 +33,8 @@ services:
 
   frontend:
     build: ./frontend
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
     environment:
       BACKEND_URL: http://backend:8000
       EIDOLON_STAND_ASSETS_URL: ${EIDOLON_STAND_ASSETS_URL:-}

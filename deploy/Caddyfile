@@ -1,6 +1,9 @@
 # 生产环境的 HTTPS 入口：Caddy 自动向 Let's Encrypt 申请并续期证书，HTTP 自动跳转到 HTTPS。
 # 浏览器只有在 HTTPS 下才允许使用麦克风。
 {
+	# 全部服务都在 host 网络上，默认的 127.0.0.1:2019 管理接口任何容器都连得到；改用只有 Caddy 容器里能碰的套接字。
+	# `caddy reload --config ...` 会从配置里读到这个地址，用法不变
+	admin unix//run/caddy-admin.sock
 	servers {
 		# 只信任 Cloudflare 官方回源网段；直连时忽略请求里的 IP 头，仍取连接地址。
 		# 核对日期：2026-11-05。CF 调整网段后需同步更新并重载 Caddy：

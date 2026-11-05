@@ -103,9 +103,11 @@ class ServiceQueue:
         self, db: Database, clock: Clock,
         is_admin: Callable[[str], Awaitable[bool]],
         active: Callable[[str], Awaitable[bool]],
+        is_guest: Callable[[str], Awaitable[bool]] | None = None,
     ) -> None:
         self._db, self._clock = db, clock
         self._is_admin, self._active = is_admin, active
+        self._is_guest = is_guest
         self._lock = asyncio.Lock()
         self._tickets: dict[str, _Ticket] = {}
         self._occupied: _Ticket | None = None
@@ -298,11 +300,12 @@ class ServiceQueue:
                     continue
                 try:
                     admin = await self._is_admin(ticket.user_id)
+                    guest = bool(self._is_guest and await self._is_guest(ticket.user_id))
                 except LookupError:  # deleted between the active check and role lookup
                     self._drop(ticket)
                     continue
                 priorities[ticket.id] = (
-                    not admin,
+                    not admin, guest,
                     counts.get(ticket.user_id, 0), ticket.sequence,
                 )
         return sorted(

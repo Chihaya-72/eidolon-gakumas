@@ -1290,6 +1290,22 @@ time limit (`EIDOLON_CALL_MINUTES=0`)."""
 
 
 @dataclass(frozen=True)
+class GuestLimits:
+    """What guests may use of the deployer's services (GLOSSARY.md「注册方式」): each guest's own
+    limits an hour, all guests' uses together an hour, and how many new guests one address may
+    become an hour, for a guest is one cleared cookie away from being a new one. 0 is none,
+    never unlimited."""
+
+    turns_per_hour: int = 10
+    calls_per_hour: int = 0
+    photos_per_hour: int = 0
+    visits_per_hour: int = 0
+    read_alouds_per_hour: int = 3
+    all_guests_per_hour: int = 100
+    new_guests_per_address_per_hour: int = 3
+
+
+@dataclass(frozen=True)
 class UsageLimits:
     """How many text turns, voice calls and visits to the bar (GLOSSARY.md「光顾」) each user
     may start in any hour, how many photos she may send them (GLOSSARY.md「照片」), and how many

@@ -307,7 +307,10 @@ def build(
     async def queue_active(user_id: str) -> bool:
         return user_id in await store.active_users({user_id})
 
-    queue = ServiceQueue(database, clock, queue_admin, queue_active)
+    async def queue_guest(user_id: str) -> bool:
+        return (await store.get_user(user_id)).is_guest
+
+    queue = ServiceQueue(database, clock, queue_admin, queue_active, queue_guest)
     if identity_providers is None:
         identity_providers = open_identity_providers(settings.github, settings.google)
         closers.extend(p.aclose for p in identity_providers.values())
@@ -440,7 +443,9 @@ def build(
             "%s have no photo_tag and photo_appearance in the character configuration, and"
             " send no photos", ", ".join(unphotographed),
         )
-    usage = UsageLimiter(database, lambda: config.usage_limits, clock)
+    usage = UsageLimiter(
+        database, lambda: config.usage_limits, clock, lambda: config.guest_limits
+    )
     # Users' own image generation, in the deployment's art style; in tests, on the same
     # fake as the deployer's, told apart by its key.
     own_images = OwnImageService(

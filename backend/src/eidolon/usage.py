@@ -16,7 +16,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 from eidolon.clock import Clock
-from eidolon.config import UsageLimits
+from eidolon.config import GuestLimits, UsageLimits
 from eidolon.data_access import Database
 from eidolon.housekeeping import in_batches
 
@@ -134,13 +134,15 @@ class UsageLimiter:
     last hour, whichever device or sign-in method they come with."""
 
     def __init__(
-        self, db: Database, limits: UsageLimits | Callable[[], UsageLimits], clock: Clock
+        self, db: Database, limits: UsageLimits | Callable[[], UsageLimits], clock: Clock,
+        guests: Callable[[], GuestLimits] = GuestLimits,
     ) -> None:
         """Uses kept in `db`, next to the users they belong to, limited by `limits`, or by
         what it says as each use is taken (the live configuration's)."""
         self._db = db
         db.prepare(_open)
         self._limits = limits if callable(limits) else lambda: limits
+        self._guests = guests
         self._clock = clock
 
     @property
@@ -155,7 +157,7 @@ class UsageLimiter:
         user's own, if an admin set one, else the deployment's. Told and taken in one write
         task, so that two at once never both take the last one."""
         return Use(self, await self._db.write(
-            _take, user_id, kind, exempt, self._clock(), self._limits()
+            _take, user_id, kind, exempt, self._clock(), self._limits(), self._guests()
         ))
 
     async def forget_old(self) -> None:
@@ -167,7 +169,7 @@ class UsageLimiter:
         """Raise OverLimit, as `take` would, if the user has no `kind` left this hour that
         counts; take nothing. Read through `db`, in the body of a read task of the
         caller's."""
-        _refuse_over(db, user_id, kind, self._clock(), self._limits())
+        _refuse_over(db, user_id, kind, self._clock(), self._limits(), self._guests())
 
     async def user_limits(self, user_id: str) -> UserLimits | None:
         """The user's own limits; None if an admin set none."""
@@ -241,10 +243,11 @@ def _take(
     exempt: bool,
     now: datetime,
     limits: UsageLimits,
+    guests: GuestLimits,
 ) -> int:
-    """Take one `kind` for the user `now`, under `limits` unless `exempt`: its id."""
+    """Take one `kind` for the user `now`, under the limits unless `exempt`: its id."""
     if not exempt:
-        _refuse_over(db, user_id, kind, now, limits)
+        _refuse_over(db, user_id, kind, now, limits, guests)
     cursor = db.execute(
         "INSERT INTO usage (user_id, kind, at, exempt) VALUES (?, ?, ?, ?)",
         (user_id, kind, now.timestamp(), int(exempt)),
@@ -254,17 +257,23 @@ def _take(
 
 
 def _refuse_over(
-    db: sqlite3.Connection, user_id: str, kind: UsageKind, now: datetime, limits: UsageLimits
+    db: sqlite3.Connection, user_id: str, kind: UsageKind, now: datetime, limits: UsageLimits,
+    guests: GuestLimits,
 ) -> None:
     """Raise OverLimit if the last hour already holds as many of the user's counting
-    `kind` as their limit: their own, else the deployment's in `limits`."""
+    `kind` as their limit: their own, else the deployment's in `limits`, or for a guest the
+    one in `guests`, and all guests' uses together their limit there."""
+    is_guest = db.execute("SELECT is_guest FROM users WHERE id = ?", (user_id,)).fetchone()
+    is_guest = bool(is_guest and is_guest[0])
     deployment = {
-        "turn": limits.turns_per_hour,
-        "call": limits.calls_per_hour,
-        "photo": limits.photos_per_hour,
-        "visit": limits.visits_per_hour,
-        "read_aloud": limits.read_alouds_per_hour,
+        "turn": guests.turns_per_hour if is_guest else limits.turns_per_hour,
+        "call": guests.calls_per_hour if is_guest else limits.calls_per_hour,
+        "photo": guests.photos_per_hour if is_guest else limits.photos_per_hour,
+        "visit": guests.visits_per_hour if is_guest else limits.visits_per_hour,
+        "read_aloud": guests.read_alouds_per_hour if is_guest else limits.read_alouds_per_hour,
     }[kind]
+    if is_guest:
+        _refuse_over_all_guests(db, kind, now, guests.all_guests_per_hour)
     own = _own_limit(db, user_id, kind)
     limit = deployment if own is None else None if own == "unlimited" else own
     if limit == 0:
@@ -282,6 +291,25 @@ def _refuse_over(
     if len(recent) >= limit:
         blocking = recent[len(recent) - limit]  # this one must age out first
         retry_at = datetime.fromtimestamp(blocking, UTC) + WINDOW
+        raise OverLimit(kind, limit, retry_at, now)
+
+
+def _refuse_over_all_guests(
+    db: sqlite3.Connection, kind: UsageKind, now: datetime, limit: int
+) -> None:
+    """Raise OverLimit if the last hour holds `limit` counting uses of any kind by guests."""
+    if limit == 0:
+        raise OverLimit(kind, 0, None, now)
+    recent = [
+        at
+        for (at,) in db.execute(
+            "SELECT u.at FROM usage u JOIN users g ON g.id = u.user_id"
+            " WHERE g.is_guest = 1 AND NOT u.exempt AND u.at > ? ORDER BY u.at",
+            ((now - WINDOW).timestamp(),),
+        )
+    ]
+    if len(recent) >= limit:
+        retry_at = datetime.fromtimestamp(recent[len(recent) - limit], UTC) + WINDOW
         raise OverLimit(kind, limit, retry_at, now)
 
 

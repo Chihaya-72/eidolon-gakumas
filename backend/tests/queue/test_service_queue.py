@@ -399,3 +399,29 @@ async def test_a_deleted_users_expired_reservation_records_nothing(deployment: D
     d.clock.advance(seconds=15)
     assert (await d.queue.enqueue("b", "turn", "/api/x"))["state"] == "ready"
     assert await d.queue.counts() == {}
+
+
+async def test_guests_wait_behind_every_registered_user(tmp_path):
+    db = Database(tmp_path / "queue.db")
+    try:
+        db.prepare(lambda c: c.execute("CREATE TABLE users(id TEXT PRIMARY KEY)"))
+
+        async def no(_: str) -> bool:
+            return False
+
+        async def yes(_: str) -> bool:
+            return True
+
+        async def guest(user_id: str) -> bool:
+            return user_id.startswith("guest")
+
+        queue = ServiceQueue(db, Clock(), no, yes, guest)
+        tickets = {
+            name: queue._new(name, "turn", "r") for name in ("guest-early", "member-late")
+        }
+        ordered = await queue._ordered()
+        assert [t.user_id for t in ordered] == ["member-late", "guest-early"]
+        assert set(tickets)
+        await queue.aclose()
+    finally:
+        await db.close()

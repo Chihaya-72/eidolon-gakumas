@@ -40,7 +40,8 @@ export type ItemName =
   | "proxy"
   | "service_status"
   | "registration"
-  | "own_keys";
+  | "own_keys"
+  | "guest_limits";
 
 /** A model's extra request body is a JSON object; every other value is plain. */
 type Value = string | number | boolean | null | JsonObject;
@@ -82,7 +83,7 @@ export function isAvailable(item: ConfigItem | UnavailableItem): item is ConfigI
   return !("unavailable" in item);
 }
 
-/** Public API configuration lives inside the administrator settings. */
+/** Public API configuration is a tab of its own, split into these categories. */
 export const PUBLIC_API_TABS = ["models", "voice", "image", "weather", "network"] as const;
 export const PUBLIC_API_ITEMS: Record<(typeof PUBLIC_API_TABS)[number], ItemName[]> = {
   models: ["chat_llm", "memory_llm", "judge", "judge_thresholds", "rerank"],
@@ -93,14 +94,15 @@ export const PUBLIC_API_ITEMS: Record<(typeof PUBLIC_API_TABS)[number], ItemName
 };
 
 export const CONFIG_TABS = [
-  "access", "status", "limits", "registration", "sponsor", "prices", "read_only",
+  "public_api", "access", "status", "limits", "registration", "sponsor", "prices", "read_only",
 ] as const;
 export type ConfigTab = (typeof CONFIG_TABS)[number];
 
 export const TAB_ITEMS: Record<ConfigTab, ItemName[]> = {
-  access: PUBLIC_API_TABS.flatMap((tab) => PUBLIC_API_ITEMS[tab]),
+  public_api: PUBLIC_API_TABS.flatMap((tab) => PUBLIC_API_ITEMS[tab]),
+  access: [],
   status: ["service_status"],
-  limits: ["limits", "own_keys", "affinity", "reach_outs", "letters", "moments", "schedule", "cycles", "bar"],
+  limits: ["limits", "guest_limits", "own_keys", "affinity", "reach_outs", "letters", "moments", "schedule", "cycles", "bar"],
   registration: ["registration"],
   sponsor: [],
   prices: [],
@@ -113,11 +115,11 @@ export function isConfigTab(value: string): value is ConfigTab {
 
 /** Older public API category links still open the administrator settings. */
 export function tabFromQuery(value: string | string[] | undefined): ConfigTab {
-  return typeof value === "string" && isConfigTab(value) ? value : "access";
+  return typeof value === "string" && isConfigTab(value) ? value : "public_api";
 }
 
 export function tabHref(pathname: string, tab: ConfigTab): string {
-  return tab === "access" ? pathname : `${pathname}?tab=${tab}`;
+  return tab === "public_api" ? pathname : `${pathname}?tab=${tab}`;
 }
 
 export type PublicApiTab = (typeof PUBLIC_API_TABS)[number];
@@ -212,6 +214,7 @@ export type FieldKind =
   | "limit"
   | "count"
   | "positive"
+  | "allowance"
   | "switch"
   | "minutes";
 
@@ -231,6 +234,10 @@ export const GPT_IMAGE_QUALITIES = ["low", "medium", "high", "auto", "xhigh", "m
 
 /** Who may sign up (GLOSSARY.md「注册方式」): anyone, or only those who bring an invite link. */
 export const REGISTRATIONS = ["open", "invite"] as const;
+const GUEST_LIMIT_FIELDS = [
+  "turns_per_hour", "calls_per_hour", "photos_per_hour", "visits_per_hour", "read_alouds_per_hour",
+  "all_guests_per_hour", "new_guests_per_address_per_hour",
+];
 
 /** Where a moment's place links to on the map (GLOSSARY.md「地点」): OpenStreetMap, Google Maps or Amap. */
 export const MAP_SITES = ["osm", "google", "amap"] as const;
@@ -468,6 +475,13 @@ export const ITEM_SPECS: Record<ItemName, ItemSpec> = {
     ],
     tried: false,
   },
+  // 游客能用多少（0 是不开放，不是不限）。不试调。
+  guest_limits: {
+    rows: GUEST_LIMIT_FIELDS,
+    secrets: [],
+    form: GUEST_LIMIT_FIELDS.map((name): FieldSpec => ({ name, kind: "allowance" })),
+    tried: false,
+  },
   // 用户能不能自行填写 API。不试调。
   own_keys: {
     rows: ["enabled"],
@@ -551,7 +565,8 @@ export type Problem = {
     | "seconds"
     | "limit"
     | "count"
-    | "positive";
+    | "positive"
+    | "allowance";
 };
 
 export type Change = Record<string, string | number | boolean | null | JsonObject>;
@@ -614,6 +629,10 @@ export function changeOf(spec: ItemSpec, form: Form, keysEditable: boolean): { c
         break;
       case "count":
         if (!/^[1-9]\d*$/.test(typed) || Number(typed) > MAX_COUNT) refuse(name, "count");
+        else change[name] = Number(typed);
+        break;
+      case "allowance":
+        if (!/^\d+$/.test(typed)) refuse(name, "allowance");
         else change[name] = Number(typed);
         break;
       case "positive":
