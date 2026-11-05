@@ -77,10 +77,13 @@ import {
 } from "@/lib/adminConfig";
 import type { FishAudioModel, LLMProtocol } from "@/lib/localOwnKeys";
 import { EFFORT_UNSET, effortLabel } from "@/lib/reasoningEffort";
+import { ServiceModelField } from "@/components/app/ServiceModelField";
 import { toFailure, type Failure } from "@/lib/failure";
 import { FailureIcon } from "@/theme/icons";
 
 const t = copy.admin.config;
+/** 后端说试调没过时开头的字（`admin_config_api`），和别的出错区分开。 */
+const TRY_FAILED = "试调失败";
 
 /**
  * 后台的「配置」页：页首下面一排分类标签（模型 / 语音 / 生图 / 网络 / 服务状态 / 限额与玩法 / 注册 / 赞赏 / 单价 / 只读），一次只看一类；
@@ -385,6 +388,17 @@ function ItemCard({
  * 还没填地址时是 null；不是模型槽是 undefined。
  */
 function modelLister(name: ItemName, form: Form): ModelLister | null | undefined {
+  if (name === "image" || name === "gpt_image") {
+    // 生图的服务按 OpenAI 的 `/models` 问；NovelAI 官方格式没有这个接口。
+    if (form.api_format === "novelai") return undefined;
+    const base_url = form.base_url?.trim() ?? "";
+    const api_key = form.api_key?.trim() ?? "";
+    if (!base_url) return null;
+    return {
+      key: `${name} ${base_url} ${api_key}`,
+      ask: () => listItemModels(name, { protocol: "chat-completions", base_url, ...(api_key && { api_key }) }),
+    };
+  }
   if (name !== "chat_llm" && name !== "memory_llm") return undefined;
   const base_url = form.base_url?.trim() ?? "";
   const api_key = form.api_key?.trim() ?? "";
@@ -420,7 +434,9 @@ function AvailableItem({
   /** 是自己关的（取消、保存成功），不是因为别的表单打开而收起：只有这时才把焦点还给「修改」。 */
   const closedHere = useRef(false);
   const [form, setForm] = useState<Form>(() => formOf(spec, item.effective));
-  const [busy, setBusy] = useState<"save" | "restore" | null>(null);
+  const [busy, setBusy] = useState<"save" | "saveUntried" | "restore" | null>(null);
+  // 试调没过的那份改动：表单还是它时，才能坚持保存。
+  const [refused, setRefused] = useState<string | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const result = changeOf(spec, form, keysEditable);
@@ -452,21 +468,27 @@ function AvailableItem({
     setForm(formOf(spec, item.effective));
     setFailure(null);
     setNotice(null);
+    setRefused(null);
     check.reset();
     setEditing(true);
   }
 
-  async function run(action: "save" | "restore", request: () => Promise<Config>, done: string) {
+  async function run(action: "save" | "saveUntried" | "restore", request: () => Promise<Config>, done: string) {
     setBusy(action);
     setFailure(null);
     setNotice(null);
+    setRefused(null);
     try {
       onChange(await request());
       closedHere.current = true;
       setEditing(false);
       setNotice(done);
     } catch (e) {
-      setFailure(toFailure(e));
+      const failed = toFailure(e);
+      setFailure(failed);
+      if (action === "save" && spec.savableUntried && "change" in result && failed.message.startsWith(TRY_FAILED)) {
+        setRefused(JSON.stringify(result.change));
+      }
     } finally {
       setBusy(null);
     }
@@ -477,6 +499,8 @@ function AvailableItem({
     if ("change" in result) void run("save", () => saveItem(name, result.change), t.saved);
     else check.refuse();
   }
+
+  const canSaveUntried = "change" in result && refused === JSON.stringify(result.change);
 
   function cancel() {
     closedHere.current = true;
@@ -598,6 +622,21 @@ function AvailableItem({
                     />
                   );
                 }
+                // 接 OpenAI 格式的生图服务时，模型名是那边的：手填，或向服务问这把 key 能用哪些。
+                const lister = field.name === "model" ? modelLister(name, form) : undefined;
+                if ((name === "image" || name === "gpt_image") && lister !== undefined) {
+                  return (
+                    <ServiceModelField
+                      key={field.name}
+                      id={fieldId}
+                      label={label}
+                      value={form[field.name]}
+                      onChange={set(field.name)}
+                      lister={lister}
+                      error={problem ? t.problems[problem.reason](label) : null}
+                    />
+                  );
+                }
                 if (field.kind === "modelChoice") {
                   return (
                     <ModelChoiceField
@@ -705,10 +744,22 @@ function AvailableItem({
                 {busy === "save" && <Spinner data-icon="inline-start" />}
                 {busy === "save" ? t.saving[saveKind] : t.save[saveKind]}
               </Button>
+              {canSaveUntried && "change" in result && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={busy !== null}
+                  onClick={() => void run("saveUntried", () => saveItem(name, result.change, true), t.savedUntried)}
+                >
+                  {busy === "saveUntried" && <Spinner data-icon="inline-start" />}
+                  {busy === "saveUntried" ? t.savingUntried : t.saveUntried}
+                </Button>
+              )}
               <Button type="button" variant="ghost" onClick={cancel} disabled={busy !== null}>
                 {copy.common.cancel}
               </Button>
             </div>
+            {canSaveUntried && <p className="text-sm text-muted-foreground">{t.saveUntriedHint}</p>}
           </form>
         )}
         {children}

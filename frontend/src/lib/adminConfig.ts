@@ -276,6 +276,8 @@ export type ItemSpec = {
   form: FieldSpec[];
   /** Whether the server tries a change before keeping it (a service is called); thresholds and limits are only range-checked. */
   tried: boolean;
+  /** 试调没过也可以让管理员坚持保存：只有生图的两项，中转那边开通之前试调过不了。 */
+  savableUntried?: boolean;
 };
 
 const LLM: ItemSpec = {
@@ -357,6 +359,7 @@ export const ITEM_SPECS: Record<ItemName, ItemSpec> = {
       { name: "api_key", kind: "secret" },
     ],
     tried: true,
+    savableUntried: true,
   },
   // 无人配图的 GPT Image（GLOSSARY.md「生图」）：地址、key、模型、质量、风格句（清空是默认的那句）。保存前真生成一张风景来检查。
   gpt_image: {
@@ -370,6 +373,7 @@ export const ITEM_SPECS: Record<ItemName, ItemSpec> = {
       { name: "api_key", kind: "secret" },
     ],
     tried: true,
+    savableUntried: true,
   },
   judge_thresholds: THRESHOLD(["recall", "emotion", "out_of_line", "manipulation", "photo"]),
   rerank: THRESHOLD(["references", "memories"]),
@@ -674,10 +678,11 @@ export async function getAdminConfig(): Promise<AdminConfig> {
   return json(await api("/api/admin/config"));
 }
 
-/** Try the item and keep it; fails with what the service said if the try fails. */
-export async function saveItem(name: ItemName, change: Change): Promise<AdminConfig> {
+/** Try the item and keep it; fails with what the service said if the try fails. `untried` keeps it
+ * without a try, for an item that allows it (`savableUntried`). */
+export async function saveItem(name: ItemName, change: Change, untried = false): Promise<AdminConfig> {
   return json(
-    await api(`/api/admin/config/${name}`, {
+    await api(`/api/admin/config/${name}${untried ? "?untried=true" : ""}`, {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(change),
@@ -688,7 +693,7 @@ export async function saveItem(name: ItemName, change: Change): Promise<AdminCon
 /** The models the service offers the key, as it lists them, for a model slot to pick one from: the key
  * in effect now if none is given, at its own address only (ADR-0027). */
 export async function listItemModels(
-  name: "chat_llm" | "memory_llm",
+  name: "chat_llm" | "memory_llm" | "image" | "gpt_image",
   asked: { protocol: string; base_url: string; api_key?: string },
 ): Promise<string[]> {
   const listed = await api(`/api/admin/config/${name}/models`, {
