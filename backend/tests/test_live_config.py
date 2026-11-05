@@ -420,3 +420,20 @@ async def test_no_one_but_admins_finds_the_configuration(
         assert (await client.get(CONFIG)).status_code == 404
         assert (await client.put(CHAT_LLM, json=NEW)).status_code == 404
         assert (await client.delete(CHAT_LLM)).status_code == 404
+
+
+async def test_public_model_can_be_configured_in_admin_after_keyless_start(
+    make_client: ClientFactory, admins: Settings, github: FakeIdentityProvider,
+):
+    empty = LLMSettings('', '', '')
+    settings = replace(admins, chat_llm=empty, background_llm=empty)
+    clients = FakeServiceClients(FakeLLM(REPLY))
+    client = await admin_client(make_client, settings, github, clients)
+    shown = (await client.get(CONFIG)).json()
+    assert shown['chat_llm']['effective']['api_key_last4'] is None
+    assert (await client.put(CHAT_LLM, json=NEW)).status_code == 200
+    await send_turn(client, await start_conversation(client), '早上好')
+    assert clients.llm.keys == [NEW_KEY]
+
+    restarted = await admin_client(make_client, settings, github, FakeServiceClients(FakeLLM(REPLY)))
+    assert (await restarted.get(CONFIG)).json()['chat_llm']['effective']['api_key_last4'] == '5678'

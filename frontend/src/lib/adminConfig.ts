@@ -50,6 +50,8 @@ export type Shown = Record<string, Value>;
 /** One item of the configuration: `.env`'s value, the one in effect, the fields the
  * admin console overrides (kept even when the override is not in effect), and why not. */
 export type ConfigItem = {
+  restart_required?: boolean;
+  retained_on_failure?: boolean;
   status: ConfigStatus;
   env: Shown;
   effective: Shown;
@@ -79,34 +81,23 @@ export function isAvailable(item: ConfigItem | UnavailableItem): item is ConfigI
   return !("unavailable" in item);
 }
 
-/** The page's tabs, in order. */
-export const CONFIG_TABS = [
-  "access",
-  "models",
-  "voice",
-  "image",
-  "weather",
-  "network",
-  "status",
-  "limits",
-  "registration",
-  "sponsor",
-  "prices",
-  "read_only",
-] as const;
-
-export type ConfigTab = (typeof CONFIG_TABS)[number];
-
-/** The items under each tab, in the order it shows them. Every item is under exactly one tab;
- * sponsoring, the invite links, the prices and the read-only items are not items, so their tabs
- * list none, or only the item beside them, and the page puts their cards in itself. */
-export const TAB_ITEMS: Record<ConfigTab, ItemName[]> = {
-  access: [],
+/** Public API configuration lives inside the administrator settings. */
+export const PUBLIC_API_TABS = ["models", "voice", "image", "weather", "network"] as const;
+export const PUBLIC_API_ITEMS: Record<(typeof PUBLIC_API_TABS)[number], ItemName[]> = {
   models: ["chat_llm", "memory_llm", "judge", "judge_thresholds", "rerank"],
   voice: ["tts", "stt"],
   image: ["image", "gpt_image"],
   weather: ["qweather"],
   network: ["proxy"],
+};
+
+export const CONFIG_TABS = [
+  "access", "status", "limits", "registration", "sponsor", "prices", "read_only",
+] as const;
+export type ConfigTab = (typeof CONFIG_TABS)[number];
+
+export const TAB_ITEMS: Record<ConfigTab, ItemName[]> = {
+  access: PUBLIC_API_TABS.flatMap((tab) => PUBLIC_API_ITEMS[tab]),
   status: ["service_status"],
   limits: ["limits", "affinity", "reach_outs", "letters", "moments", "schedule", "cycles", "bar"],
   registration: ["registration"],
@@ -119,13 +110,24 @@ export function isConfigTab(value: string): value is ConfigTab {
   return (CONFIG_TABS as readonly string[]).includes(value);
 }
 
-/** The tab a link asks for in `?tab=`; the models when it asks for none or one not there. */
+/** Older public API category links still open the administrator settings. */
 export function tabFromQuery(value: string | string[] | undefined): ConfigTab {
-  return typeof value === "string" && isConfigTab(value) ? value : "models";
+  return typeof value === "string" && isConfigTab(value) ? value : "access";
 }
 
-/** The address of the page showing `tab`: the models, the default, need no query. */
 export function tabHref(pathname: string, tab: ConfigTab): string {
+  return tab === "access" ? pathname : `${pathname}?tab=${tab}`;
+}
+
+export type PublicApiTab = (typeof PUBLIC_API_TABS)[number];
+
+/** The public API category a link asks for in `?tab=`; the models when it asks for none. */
+export function publicApiTabFromQuery(value: string | string[] | undefined): PublicApiTab {
+  return (PUBLIC_API_TABS as readonly unknown[]).includes(value) ? (value as PublicApiTab) : "models";
+}
+
+/** The address of the page showing a public API category: the models, the default, need no query. */
+export function publicApiTabHref(pathname: string, tab: PublicApiTab): string {
   return tab === "models" ? pathname : `${pathname}?tab=${tab}`;
 }
 
@@ -179,6 +181,13 @@ export const PROXIED_SERVICES = [
 ] as const;
 
 export type ProxiedService = (typeof PROXIED_SERVICES)[number];
+
+/** Select every public API for the proxy, preserving each user's own routing choices. */
+export function protectPublicApis(form: Form): Form {
+  return { ...form, enabled: "true", ...Object.fromEntries(
+    PROXIED_SERVICES.filter((service) => !service.startsWith("own_")).map((service) => [service, "true"]),
+  ) };
+}
 
 /** How a field is typed in: a choice, text, a model chosen from a list or typed in by hand (required either way), text
  * that may be emptied (sent as null), a key (left empty to keep it), max_tokens (a
@@ -492,7 +501,7 @@ export function rows(item: ConfigItem, spec: ItemSpec): FieldRow[] {
       effective: valueOf(item.effective, field, spec.secrets) ?? null,
       overridden: override !== undefined,
       override: override ?? null,
-      inEffect: override !== undefined && item.status === "overridden",
+      inEffect: override !== undefined && (item.status === "overridden" || item.retained_on_failure === true),
     };
   });
 }

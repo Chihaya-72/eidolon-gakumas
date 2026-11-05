@@ -1,10 +1,13 @@
 "use client";
 
+import { useState } from "react";
+import { FailureNotice } from "@/components/app/FailureNotice";
 import { AppLink } from "@/components/app/AppLink";
 import { Button } from "@/components/ui/button";
 import { copy } from "@/i18n";
 import { interpolate } from "@/i18n/interpolate";
-import type { SignInOptions } from "@/lib/api";
+import { guestLogin, type SignInOptions } from "@/lib/api";
+import { toFailure, type Failure } from "@/lib/failure";
 import { cn } from "@/lib/utils";
 import { PROVIDER_LABELS, signInUrl } from "@/lib/signIn";
 
@@ -24,6 +27,19 @@ export function SignInChoices({
   invite?: string | null;
   className?: string;
 }) {
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<Failure | null>(null);
+  async function enterAsGuest() {
+    setBusy(true);
+    setFailure(null);
+    try {
+      await guestLogin();
+      window.location.assign("/conversations");
+    } catch (error) {
+      setFailure(toFailure(error));
+      setBusy(false);
+    }
+  }
   return (
     <section aria-label={t.signInRegion} className={cn("flex flex-col gap-3", className)}>
       {options?.providers.map((provider, i) => (
@@ -39,7 +55,13 @@ export function SignInChoices({
           {t.signInWith(PROVIDER_LABELS[provider])}
         </Button>
       ))}
-      {options && options.providers.length === 0 && !options.dev_login && (
+      {options?.guest_login && (
+        <Button size="lg" className="w-full" disabled={busy} onClick={enterAsGuest}>
+          {busy ? t.guestBusy : t.guestSubmit}
+        </Button>
+      )}
+      {failure && <FailureNotice failure={failure} />}
+      {options && options.providers.length === 0 && !options.dev_login && !options.guest_login && (
         <p className="text-body text-muted-foreground">{t.noProviders}</p>
       )}
       <p className="text-sm text-muted-foreground">

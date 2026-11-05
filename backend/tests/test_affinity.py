@@ -24,10 +24,7 @@ from tests.test_admin_users import admin_beside
 from tests.test_delete_account import user_id
 
 AFFINITY = "/api/admin/config/affinity"
-UNAVAILABLE = (
-    ".env 里没有配置判断模型，好感度要靠它判断，在启动时就关掉了；"
-    "要启用，请在 .env 里配置判断模型后重启"
-)
+UNAVAILABLE = "好感度需要判断模型；请在管理员设置的公用 API 中配置判断模型后重启后端"
 
 
 @pytest.fixture

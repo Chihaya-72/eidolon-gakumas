@@ -293,6 +293,7 @@ def add_account_routes(app: FastAPI, backend: Backend) -> None:
         return {
             "providers": [p for p in PROVIDER_NAMES if p in providers],
             "dev_login": settings.dev_login,
+            "guest_login": settings.guest_login,
             "contact": settings.contact,
         }
 
@@ -595,7 +596,7 @@ def add_account_routes(app: FastAPI, backend: Backend) -> None:
         recording nothing; 422 with what the service said if the try failed, or untried
         where there is no judge model, without which no turn has a photo. Its address and
         model as the browser is to keep them."""
-        if backend.config.judge_settings is None:
+        if not backend.config.has_service("judge"):
             raise OwnKeyRejected(NO_PHOTOS)
         own = body.settings()
         with throttle.asking(user_id):
@@ -606,6 +607,23 @@ def add_account_routes(app: FastAPI, backend: Backend) -> None:
     async def consent(body: Consent, user: SignedIn) -> None:
         """Agree to the privacy policy and terms of use, which the rest of the API waits for."""
         await store.consent(user.id, clock())
+
+    if settings.guest_login:
+
+        @app.post("/api/auth/guest-login", status_code=204)
+        async def guest_login(request: Request, response: Response) -> None:
+            if await session_user(request) is not None:
+                return
+            browser_token = request.cookies.get("eidolon_guest", "")
+            user, token = await store.guest_user(
+                browser_token if re.fullmatch(r"[A-Za-z0-9_-]{43}", browser_token) else None
+            )
+            if user.banned_at is not None:
+                raise HTTPException(403, "这位用户已被封禁")
+            response.set_cookie("eidolon_guest", token, max_age=365 * 86400,
+                                httponly=True, secure=settings.domain is not None,
+                                samesite="lax", path="/")
+            await signed_in(user.id, response, request)
 
     if settings.dev_login:
 

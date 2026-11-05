@@ -487,7 +487,7 @@ export async function api(path: string, init: RequestInit = {}): Promise<Respons
 
 /** The ways to sign in the backend offers, and how to reach the deployer (null if the
  * deployer gave none), which a banned user is told. */
-export type SignInOptions = { providers: Provider[]; dev_login: boolean; contact: string | null };
+export type SignInOptions = { providers: Provider[]; dev_login: boolean; guest_login?: boolean; contact: string | null };
 
 /** What the landing page shows that belongs to no one character. `memory_still_url`: its act about
  * memory as one picture, for visitors who see no animation, in the stands' bucket; null unless the
@@ -714,6 +714,11 @@ export async function agreeToTerms(): Promise<void> {
       body: JSON.stringify({ agree_to_terms: true, at_least_13: true }),
     }),
   );
+}
+
+/** Sign this browser in as its own guest. */
+export async function guestLogin(): Promise<void> {
+  await expectNoContent(await api("/api/auth/guest-login", { method: "POST" }));
 }
 
 /** Sign in as the user with this name (development only). */

@@ -526,3 +526,129 @@ async def test_a_model_that_cannot_call_tools_is_told_so_whatever_its_effort():
     # Answering without tools, it took the effort: the tools are what it refuses.
     with pytest.raises(LLMError, match="^对话模型不支持工具调用.*tools are not supported"):
         await check_chat_llm(llm, "high")
+
+
+def test_server_can_start_without_public_api_keys(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, characters: CharacterConfig,
+):
+    import asyncio
+    import os
+
+    for key in list(os.environ):
+        if key.endswith('_API_KEY') or key in ('CLOUDFLARE_API_TOKEN', 'JUDGE_PROVIDER'):
+            monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv('EIDOLON_DATABASE_PATH', str(tmp_path / 'keyless.db'))
+    monkeypatch.setenv('EIDOLON_CHARACTERS_PATH', str(characters.path))
+    started = []
+
+    def run(app, **kwargs):
+        backend = app.state.backend
+        started.append(True)
+        assert not backend.config.has_service('chat_llm')
+        assert not backend.config.has_service('memory_llm')
+        asyncio.run(backend.aclose())
+
+    monkeypatch.setattr('uvicorn.run', run)
+    assert main(['serve']) == 0
+    assert started == [True]
+
+
+async def test_unconfigured_public_model_makes_no_network_request():
+    contacted = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        contacted.append(request)
+        raise AssertionError('An unconfigured service must not contact a provider')
+
+    llm = open_llm(LLMSettings('', '', ''), httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+    try:
+        with pytest.raises(LLMError, match='公用 API 尚未配置'):
+            async for _ in llm.stream([ChatMessage('user', 'hello')]):
+                pass
+    finally:
+        await llm.aclose()
+    assert contacted == []
+
+
+def test_startup_checks_use_the_saved_proxy_before_contacting_a_provider(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, characters: CharacterConfig,
+):
+    import asyncio
+    import sqlite3
+
+    set_chat_model(monkeypatch, 'https://custom-provider.example/v1')
+    database = tmp_path / 'proxy.db'
+    monkeypatch.setenv('EIDOLON_DATABASE_PATH', str(database))
+    monkeypatch.setenv('EIDOLON_CHARACTERS_PATH', str(characters.path))
+    with sqlite3.connect(database) as db:
+        db.execute('CREATE TABLE config_overrides (name TEXT PRIMARY KEY, value TEXT NOT NULL, last4 TEXT, updated_at TEXT NOT NULL)')
+        for field, value in {'enabled': True, 'url': 'socks5://127.0.0.1:40000', 'chat_llm': True}.items():
+            db.execute('INSERT INTO config_overrides VALUES (?, ?, NULL, ?)', (f'proxy.{field}', json.dumps(value), '2026-11-05'))
+    checked = []
+
+    async def check(settings):
+        checked.append(settings.proxy.proxy_for('chat_llm'))
+
+    def run(app, **kwargs):
+        asyncio.run(app.state.backend.aclose())
+
+    monkeypatch.setattr('eidolon.__main__._check_chat_llm', check)
+    monkeypatch.setattr('uvicorn.run', run)
+    assert main(['serve']) == 0
+    assert checked == ['socks5://127.0.0.1:40000']
+
+
+def saved_chat_model(database: Path) -> None:
+    import sqlite3
+
+    with sqlite3.connect(database) as db:
+        db.execute(
+            'CREATE TABLE config_overrides (name TEXT PRIMARY KEY, value TEXT NOT NULL,'
+            ' last4 TEXT, updated_at TEXT NOT NULL)'
+        )
+        db.execute(
+            'INSERT INTO config_overrides VALUES (?, ?, NULL, ?)',
+            ('chat_llm.model', json.dumps('saved-model'), '2026-11-05'),
+        )
+
+
+def test_a_saved_chat_model_that_fails_its_check_leaves_the_server_up_for_an_admin_to_fix(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, characters: CharacterConfig,
+):
+    import asyncio
+
+    set_chat_model(monkeypatch, 'https://custom-provider.example/v1')
+    database = tmp_path / 'saved.db'
+    monkeypatch.setenv('EIDOLON_DATABASE_PATH', str(database))
+    monkeypatch.setenv('EIDOLON_CHARACTERS_PATH', str(characters.path))
+    saved_chat_model(database)
+    started = []
+
+    async def check(settings):
+        raise LLMError('the saved key was revoked')
+
+    def run(app, **kwargs):
+        started.append(True)
+        asyncio.run(app.state.backend.aclose())
+
+    monkeypatch.setattr('eidolon.__main__._check_chat_llm', check)
+    monkeypatch.setattr('uvicorn.run', run)
+    assert main(['serve']) == 0
+    assert started == [True]
+
+
+def test_a_chat_model_only_env_has_that_fails_its_check_still_stops_the_server(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, characters: CharacterConfig,
+    capsys: pytest.CaptureFixture[str],
+):
+    set_chat_model(monkeypatch, 'https://custom-provider.example/v1')
+    monkeypatch.setenv('EIDOLON_DATABASE_PATH', str(tmp_path / 'env.db'))
+    monkeypatch.setenv('EIDOLON_CHARACTERS_PATH', str(characters.path))
+
+    async def check(settings):
+        raise LLMError('this key does not work')
+
+    monkeypatch.setattr('eidolon.__main__._check_chat_llm', check)
+    monkeypatch.setattr('uvicorn.run', lambda *a, **k: pytest.fail('should not start'))
+    assert main(['serve']) == 1
+    assert 'this key does not work' in capsys.readouterr().err

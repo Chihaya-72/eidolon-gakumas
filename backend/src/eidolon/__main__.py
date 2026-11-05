@@ -100,7 +100,8 @@ import io
 import logging
 import os
 import sys
-from collections.abc import Sequence
+from collections.abc import Coroutine, Sequence
+from typing import Any, TypeVar
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -120,6 +121,8 @@ from eidolon.data_access import Database
 from eidolon.identity import PROVIDER_LABELS
 from eidolon.store import NotFound, Store
 from eidolon.usage import Tally, UsageLimiter
+
+_T = TypeVar("_T")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -212,14 +215,32 @@ def _serve() -> int:
     try:  # missing settings, an unusable DashScope key or Cloudflare token, a broken
         # character configuration
         settings = Settings.from_env()
-        settings = asyncio.run(_find_dashscope_region(settings))
-        asyncio.run(_check_judge(settings))
         backend = build(settings)
     except RuntimeError as e:
         print(e, file=sys.stderr)
         return 1
     try:  # an unfit chat model
-        asyncio.run(_check_chat_llm(settings))
+        # Load saved routing before probing any API: startup probes must not bypass
+        # the administrator's proxy and reveal the server's direct address.
+        from eidolon.live_config import CHAT_LLM, JUDGE, PROXY
+
+        config = backend.config
+        routed = replace(settings, proxy=config.proxy_settings)
+        routed = _checked_at_start(
+            _find_dashscope_region(routed), config.has_saved(PROXY), routed
+        )
+        config.settings = replace(settings, dashscope_region=routed.dashscope_region)
+        _checked_at_start(
+            _check_judge(replace(routed, judge=config.judge_settings)),
+            config.has_saved(PROXY, JUDGE), None,
+        )
+        _checked_at_start(
+            _check_chat_llm(replace(
+                routed, chat_llm=config.chat_model.text,
+                call_reasoning_effort=config.chat_model.call_effort,
+            )),
+            config.has_saved(PROXY, CHAT_LLM), None,
+        )
     except RuntimeError as e:
         asyncio.run(backend.aclose())
         print(e, file=sys.stderr)
@@ -234,6 +255,23 @@ def _serve() -> int:
         timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_SECONDS,
     )
     return 0
+
+
+def _checked_at_start(check: Coroutine[Any, Any, _T], saved: bool, otherwise: _T) -> _T:
+    """What a check of the server starting comes to. What `.env` alone says that fails stops
+    the server, as the deployer is there to fix it; what an admin saved (`saved`) that fails
+    leaves it up, `otherwise`, as an admin can only fix that in the admin console, which
+    `LiveConfig.start` then reports the failure in."""
+    try:
+        return asyncio.run(check)
+    except RuntimeError as e:
+        if not saved:
+            raise
+        logging.getLogger("eidolon.startup").warning(
+            "a startup check failed on what the admin console saved; starting anyway,"
+            " for an admin to fix it there: %s", e,
+        )
+        return otherwise
 
 
 async def _find_dashscope_region(settings: Settings) -> Settings:
@@ -270,6 +308,12 @@ async def _check_chat_llm(settings: Settings) -> None:
     from eidolon.llm.providers import LLM_TIMEOUT, check_chat_models, open_chat_models
     from eidolon.proxy import open_client
 
+    if not settings.chat_llm.configured:
+        logging.getLogger("eidolon.startup").warning(
+            "no chat model is configured (CHAT_LLM_BASE_URL, CHAT_LLM_API_KEY, CHAT_LLM_MODEL):"
+            " conversations fail on the deployer's model until an admin sets one"
+        )
+        return
     proxy = settings.proxy.proxy_for("chat_llm")
     models = open_chat_models(settings.chat_model, open_client(proxy, LLM_TIMEOUT))
     try:
@@ -776,7 +820,7 @@ async def _draft_sheet(args: argparse.Namespace) -> int:
         print(e, file=sys.stderr)
         return 1
     try:
-        llm_settings = LLMSettings.background_from_env()
+        llm_settings = LLMSettings.background_required_from_env()
     except RuntimeError as e:
         print(e, file=sys.stderr)
         return 1
@@ -982,7 +1026,7 @@ async def _eval_memory(args: argparse.Namespace) -> int:
         print(e, file=sys.stderr)
         return 1
     try:
-        background = LLMSettings.background_from_env()
+        background = LLMSettings.background_required_from_env()
         embedding = EmbeddingSettings.required_from_env()
         rerank = RerankSettings.from_env()
         if rerank is None:
@@ -1065,7 +1109,7 @@ async def _eval_moments(args: argparse.Namespace) -> int:
         print(e, file=sys.stderr)
         return 1
     try:
-        chat = LLMSettings.chat_from_env()
+        chat = LLMSettings.chat_required_from_env()
         image = ImageSettings.from_env()
     except RuntimeError as e:
         print(f"朋友圈评测要用部署者配置的对话模型：{e}", file=sys.stderr)

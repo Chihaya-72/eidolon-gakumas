@@ -819,8 +819,8 @@ async def test_what_cannot_be_changed_here_is_only_shown_saying_why(
     assert read_only["secret_key"]["value"] is True
     assert admins.secret_key and admins.secret_key not in shown.text
     assert refused.status_code == 403 and "服务器" in refused.json()["detail"]
-    assert unconfigured.status_code == 409
-    assert "unavailable" in shown.json()["judge"]
+    assert unconfigured.status_code == 200
+    assert unconfigured.json()["judge"]["restart_required"] is True
 
 
 async def test_dev_login_shows_only_additional_environment_admins(
@@ -833,3 +833,47 @@ async def test_dev_login_shows_only_additional_environment_admins(
     read_only = {item["name"]: item["value"] for item in shown.json()["read_only"]}
     assert read_only["admins"] == []
 
+
+
+async def test_a_judge_model_taken_away_keeps_running_until_a_restart(
+    make_client: ClientFactory, admins: Settings, github: FakeIdentityProvider,
+):
+    settings = replace(admins, judge=None)
+    first = await admin_client(make_client, settings, github, FakeServiceClients())
+    assert (await first.put(JUDGE, json=CLOUDFLARE)).status_code == 200
+    restarted = await admin_client(make_client, settings, github, FakeServiceClients())
+    config = backend_of(restarted).config
+    assert config.retrieval_judge() is not None
+
+    assert (await restarted.delete(JUDGE)).status_code == 200
+
+    shown = (await restarted.get(CONFIG)).json()
+    assert shown["judge"]["restart_required"] is True
+    assert "unavailable" in shown["affinity"]  # off at once, as nothing asks the judge for it
+    lease = config.lease_judge()
+    assert lease is not None  # what was wired up at the start can still ask it
+    lease.release()
+
+
+async def test_affinity_says_a_judge_model_just_set_needs_a_restart(
+    make_client: ClientFactory, admins: Settings, github: FakeIdentityProvider,
+):
+    client = await admin_client(
+        make_client, replace(admins, judge=None), github, FakeServiceClients()
+    )
+    assert (await client.put(JUDGE, json=CLOUDFLARE)).status_code == 200
+    assert (await client.get(CONFIG)).json()["affinity"]["restart_required"] is True
+
+
+async def test_initial_judge_setup_is_kept_and_becomes_available_on_restart(
+    make_client: ClientFactory, admins: Settings, github: FakeIdentityProvider,
+):
+    settings = replace(admins, judge=None)
+    first = await admin_client(make_client, settings, github, FakeServiceClients())
+    saved = await first.put(JUDGE, json=CLOUDFLARE)
+    assert saved.status_code == 200, saved.text
+    assert saved.json()['judge']['restart_required'] is True
+    restarted = await admin_client(make_client, settings, github, FakeServiceClients())
+    shown = (await restarted.get(CONFIG)).json()['judge']
+    assert shown['effective']['provider'] == 'cloudflare'
+    assert not shown.get('restart_required', False)

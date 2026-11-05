@@ -29,8 +29,16 @@ async def test_disabled_by_default_and_password_required_to_enable(gate):
     assert (await access.state("browser", "192.0.2.1", None))["passed"]
     with pytest.raises(ValueError, match="先设置密码"):
         await access.save(True, None, "admin")
-    with pytest.raises(ValueError, match="8 至 128"):
-        await access.save(True, "short", "admin")
+    for password in ("five5", "seven77"):
+        with pytest.raises(ValueError, match="8 至 128"):
+            await access.save(True, password, "admin")
+
+
+async def test_eight_character_password_can_protect_the_site(gate):
+    access, _ = gate
+    await access.save(True, "eight888", "admin")
+    assert not (await access.state("visitor", "192.0.2.1", None))["passed"]
+    assert (await access.verify("eight888", "visitor", "192.0.2.1"))[0]["passed"]
 
 
 async def test_grants_are_browser_bound_expire_and_change_with_password(gate):

@@ -1,5 +1,16 @@
 # Configuration guide
 
+## Public APIs and first startup
+
+The site and admin console can start with all service API keys empty. Shared models, speech, image generation, weather and proxy settings are grouped under **管理员设置 → 公用 API** in the admin configuration. Personal API settings are unchanged. Unconfigured shared models make no provider requests; users may bring their own API as before.
+
+Set `EIDOLON_SECRET_KEY` to enable encrypted storage of API keys in the admin console. It is a local encryption secret, not a provider API key. Chat model settings require a URL, key and model when saved, and persist across restarts. Enabling the judge model for the first time requires a backend restart. Embedding remains deployment configuration because changing it requires rebuilding the index.
+
+Configure the proxy before testing public API credentials if the server's egress IP must be protected. **公用 API 全部走代理** selects all shared services without changing personal routing options. Custom public API endpoints use the selected proxy too. Proxy failures, including startup checks or unreadable saved passwords, retain the proxy route rather than silently falling back to a direct connection.
+
+DNS-only `1.1.1.1` does not tunnel API traffic. A WARP local proxy can be used via its HTTP/SOCKS address on the backend machine; a user's desktop VPN does not proxy a remote backend. WARP does not guarantee anonymity, and API keys still identify accounts. See [Cloudflare's client modes](https://developers.cloudflare.com/warp-client/warp-modes/).
+
+
 [简体中文](configuration.md) · **English** · [日本語](configuration.ja.md)
 
 This guide explains how to turn on and tune each feature, and how the characters behave once it is on. Every environment variable is documented one by one in [`.env.example`](../.env.example). The full steps for deploying to a server are in [`deploy.md`](deploy.md) (Chinese), and the terms are in [`GLOSSARY.md`](../GLOSSARY.md).
@@ -625,7 +636,7 @@ EIDOLON_PROXY_SERVICES=chat_llm,tts,stt
 - **Only these two**: `HTTPS_PROXY`, `ALL_PROXY` and the like have no effect on the services above; other outgoing requests (sign-in, backups, story sync) still follow them.
 - **Own keys are picked apart**: Keys users bring are ticked apart from the deployer's services, as the two may be with different providers (the deployer's speech recognition on Model Studio, direct, and a user's own on Soniox, say). The requests are the server's, so a proxy or VPN the user runs has no part in them. Unticked, the default, they go direct; ticked, they go through the deployer's proxy, on its traffic.
 - **Own LLMs go through it only to known providers**: The address of a user's own LLM is theirs to type, and may point into the server's own network; through a proxy, the server cannot check where it really connects. So only an address whose host is a known provider's goes through it: the providers the price catalog (models.dev; see [Prices for cost estimates](deploy.md#花费估算用的单价) in the deploy guide) gives an address for, the few the code knows (OpenAI, Anthropic, Google Gemini, xAI, Mistral, Cohere, Groq, Cerebras, DeepInfra, Together, Perplexity, Venice) and OpenRouter; never an IP address or `localhost`. Any other goes direct, checked to be on the public internet ([ADR-0022](adr/0022-own-llms-through-the-proxy-only-to-known-providers.md)). While the catalog cannot be fetched, only the ones the code knows count. Users' own image generation works the same way, with NovelAI itself as the one known provider.
-- **Changeable in the admin console**: The 「网络」 (Network) tab of the config page has 「网络代理」 (Proxy): switch it on or off, change the address and pick the services, with no restart. It holds from the next request on (in turns and calls under way too; voice connections already open stay up). Before saving, each of the deployer's services routed a new way is reached that way once (users' own keys are not: there are none here to try with), and nothing is saved if one cannot be; if one cannot be as the server restarts, `.env`'s value is used and the admin console says so. A password in the address is encrypted like a key; without `EIDOLON_SECRET_KEY`, an address with a password can only be set in `.env`.
+- **Changeable in the admin console**: The 「网络」 (Network) tab of the config page has 「网络代理」 (Proxy): switch it on or off, change the address and pick the services, with no restart. It holds from the next request on (in turns and calls under way too; voice connections already open stay up). Before saving, each of the deployer's services routed a new way is reached that way once (users' own keys are not: there are none here to try with), and nothing is saved if one cannot be; if it cannot be reached as the server restarts, the proxy route remains selected and the admin console reports the error without direct fallback. A password in the address is encrypted like a key; without `EIDOLON_SECRET_KEY`, an address with a password can only be set in `.env`.
 
 ## Service status
 

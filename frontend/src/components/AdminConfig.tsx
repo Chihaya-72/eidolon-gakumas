@@ -43,6 +43,11 @@ import { copy } from "@/i18n";
 import {
   changeOf,
   CONFIG_TABS,
+  PUBLIC_API_TABS,
+  PUBLIC_API_ITEMS,
+  protectPublicApis,
+  publicApiTabHref,
+  type PublicApiTab,
   CUSTOM_MODEL,
   formOf,
   getAdminConfig,
@@ -87,7 +92,13 @@ const t = copy.admin.config;
  * 琥珀色点，不会因为没切过去就漏看。切走时各标签的内容留着不卸，没保存的表单切回来还在（除非在别的
  * 标签开了另一张表单，全页同一时间只开一张）。
  */
-export function AdminConfig({ initialTab }: { initialTab: ConfigTab }) {
+export function AdminConfig({
+  initialTab,
+  initialPublicApiTab = "models",
+}: {
+  initialTab: ConfigTab;
+  initialPublicApiTab?: PublicApiTab;
+}) {
   const [config, setConfig] = useState<Config | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [tab, setTab] = useState<ConfigTab>(initialTab);
@@ -124,12 +135,39 @@ export function AdminConfig({ initialTab }: { initialTab: ConfigTab }) {
             </TabsList>
             {CONFIG_TABS.map((name) => (
               <TabsContent key={name} value={name} keepMounted className="flex flex-col gap-6">
-                {TAB_ITEMS[name].map((item) => (
+                {name !== "access" && TAB_ITEMS[name].map((item) => (
                   <ItemCard key={item} name={item} config={config} onChange={setConfig}>
                     {item === "affinity" && <ResetCardGrants isOn={isOn(config.affinity)} />}
                   </ItemCard>
                 ))}
-                {name === "access" && <AdminAccess />}
+                {name === "access" && (
+                  <>
+                    <AdminAccess />
+                    <section className="flex flex-col gap-4" aria-labelledby="public-api-title">
+                      <h2 id="public-api-title" className="text-lg font-semibold">{t.publicApiTitle}</h2>
+                      <p className="text-sm text-muted-foreground">{t.publicApiIntro}</p>
+                      <Tabs
+                        defaultValue={initialPublicApiTab}
+                        onValueChange={(value) => window.history.replaceState(null, "", publicApiTabHref(window.location.pathname, value as PublicApiTab))}
+                        className="gap-4"
+                      >
+                        <TabsList aria-label={t.publicApiNav}>
+                          {PUBLIC_API_TABS.map((group) => (
+                            <TabsTrigger key={group} value={group}>
+                              {t.tabs[group]}
+                              {PUBLIC_API_ITEMS[group].some((item) => isAvailable(config[item]) && config[item].status === "failed") && <StatusDot variant="warning" label={t.tabFailed} />}
+                            </TabsTrigger>
+                          ))}
+                        </TabsList>
+                        {PUBLIC_API_TABS.map((group) => (
+                          <TabsContent key={group} value={group} keepMounted className="flex flex-col gap-6">
+                            {PUBLIC_API_ITEMS[group].map((item) => <ItemCard key={item} name={item} config={config} onChange={setConfig} />)}
+                          </TabsContent>
+                        ))}
+                      </Tabs>
+                    </section>
+                  </>
+                )}
                 {name === "registration" && <AdminInvites />}
                 {name === "sponsor" && <AdminSponsor />}
                 {name === "prices" && <AdminPrices />}
@@ -477,13 +515,15 @@ function AvailableItem({
         )}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {(name === "chat_llm" || name === "memory_llm") && !item.effective.api_key_last4 && <p className="text-sm text-muted-foreground">{t.publicApiMissing}</p>}
+        {item.restart_required && <Alert><AlertTitle>{t.restartRequired}</AlertTitle><AlertDescription>{t.restartJudge}</AlertDescription></Alert>}
         {item.follows_chat && <p className="text-muted-foreground">{t.followsChat}</p>}
         {item.model && <p className="text-muted-foreground">{t.forModel(item.model)}</p>}
         {display.failure && (
           <Alert>
             <FailureIcon />
-            <AlertTitle>{t.status.failed}</AlertTitle>
-            <AlertDescription>{t.failed(display.failure)}</AlertDescription>
+            <AlertTitle>{name === "proxy" ? t.proxyUnavailable : t.status.failed}</AlertTitle>
+            <AlertDescription>{name === "proxy" ? t.proxyKept(display.failure) : t.failed(display.failure)}</AlertDescription>
           </Alert>
         )}
         {notice && <Notice text={notice} onDismiss={() => setNotice(null)} />}
@@ -492,6 +532,7 @@ function AvailableItem({
         {(!editing || overridden) && <Values name={name} rows={fieldRows} />}
         {editing && (
           <form ref={formRef} onSubmit={submit} noValidate className="flex max-w-md flex-col gap-6">
+            {name === "proxy" && <Button type="button" variant="outline" onClick={() => setForm(protectPublicApis)}>{t.protectPublicApis}</Button>}
             <FieldGroup>
               {spec.form.map((field) => {
                 const label = fieldLabel(name, field.name);

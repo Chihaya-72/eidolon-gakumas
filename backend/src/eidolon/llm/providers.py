@@ -1,6 +1,8 @@
 """Building a model slot's provider from its settings, and checking the chat model can do
 what conversations need of it."""
 
+from collections.abc import AsyncIterator, Sequence
+
 import httpx
 
 from eidolon.config import (
@@ -10,7 +12,7 @@ from eidolon.config import (
     LLMSettings,
     ReasoningEffort,
 )
-from eidolon.llm import ChatLLM, ChatMessage, ChatModels, LLMError, Reasoning, Tool, ToolCall
+from eidolon.llm import ChatLLM, ChatMessage, ChatModels, LLMError, Reasoning, Streamed, Tool, ToolCall
 from eidolon.llm.anthropic import AnthropicLLM
 from eidolon.llm.openai_compat import OpenAICompatLLM
 from eidolon.llm.responses import ResponsesLLM
@@ -25,6 +27,8 @@ _PROVIDERS: dict[LLMProtocol, type[OpenAICompatLLM | ResponsesLLM | AnthropicLLM
 
 
 def open_llm(settings: LLMSettings, client: httpx.AsyncClient | None = None) -> ChatLLM:
+    if not settings.configured:
+        return _UnconfiguredLLM(client)
     provider = _PROVIDERS[settings.protocol]
     return provider(
         settings.base_url,
@@ -35,6 +39,24 @@ def open_llm(settings: LLMSettings, client: httpx.AsyncClient | None = None) -> 
         reasoning_effort=settings.reasoning_effort,
         extra_body=settings.extra_body,
     )
+
+
+class _UnconfiguredLLM:
+    """Keep the admin console and BYOK usable without contacting a public provider."""
+
+    def __init__(self, client: httpx.AsyncClient | None) -> None:
+        self._client = client
+
+    async def stream(
+        self, messages: Sequence[ChatMessage], tools: Sequence[Tool] = (), *,
+        forbid_calls: bool = False,
+    ) -> AsyncIterator[Streamed]:
+        raise LLMError("公用 API 尚未配置，请联系管理员，或在设置中填写自己的 API。")
+        yield ""  # An async iterator, even though it always fails before making a request.
+
+    async def aclose(self) -> None:
+        if self._client is not None:
+            await self._client.aclose()
 
 
 def open_chat_models(

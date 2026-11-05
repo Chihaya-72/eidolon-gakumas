@@ -146,6 +146,8 @@ Eidolon-Gakumas 让你以 **283 事务所制作人**的身份，和原作中的�
 
 ## 🚀 快速开始
 
+可以不填服务 API Key 先启动网站，再由首位管理员在「后台配置 → 管理员设置 → 公用 API」填写；个人自用 API 的设置不变。后台加密保存密钥仍需 `EIDOLON_SECRET_KEY`。需要保护出口 IP 时先配置代理。详见[配置指南](docs/configuration.md#公用-api-与首次启动)。
+
 ### 让 Agent 帮你部署
 
 不熟悉 Docker 和各种 API key 也没关系：把下面这段话发给你用的编程 Agent（Claude Code、Codex、Cursor 等都行），它会照仓库里的[部署说明](docs/agents/deploying.md)一步步带你做，碰到报错也会帮你查。
