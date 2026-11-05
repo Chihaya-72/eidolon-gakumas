@@ -118,7 +118,8 @@ async def test_queue_ticket_must_match_operation_and_conversation(make_client: C
         headers={"X-Queue-Ticket": waiting["id"]},
     )
     assert response.status_code == 409, response.text
-    assert await backend_of(client).queue.counts() == {}
+    # The mismatched ticket had reached the slot, so giving it up this way counts as a use.
+    assert await backend_of(client).queue.counts() == {await user_id(client): 1}
     assert (await client.post("/api/queue", json={"kind": "call", "resource": "/api/offer"})).status_code == 422
     response = await client.post("/api/queue", json={
         "kind": "call", "resource": "/api/offer", "target": first,
