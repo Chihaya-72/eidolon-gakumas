@@ -4,6 +4,8 @@ users' own API keys."""
 from dataclasses import replace
 from pathlib import Path
 
+import pytest
+
 from eidolon.config import Settings
 from eidolon.passwords import ADMIN_SUFFIX
 from tests.conftest import ClientFactory, agree_to_terms, store_in
@@ -225,18 +227,13 @@ async def test_guests_have_their_own_limit_and_a_shared_one(
     usage = backend.usage
     await usage.take(first, "turn")
     await usage.take(first, "turn")
-    for refused, kind in ((first, "turn"), (first, "call")):
-        try:
-            await usage.take(refused, kind)
-            raise AssertionError(kind)
-        except OverLimit:
-            pass
+    with pytest.raises(OverLimit):
+        await usage.take(first, "turn")
+    with pytest.raises(OverLimit):
+        await usage.take(first, "call")
     await usage.take(second, "turn")  # the third of all guests'
-    try:
+    with pytest.raises(OverLimit):
         await usage.take(second, "turn")
-        raise AssertionError("all guests")
-    except OverLimit:
-        pass
     await usage.take(second, "turn", exempt=True)  # on their own keys
     member = await backend.store.create_user("member")
     await usage.take(member.id, "turn")
