@@ -96,7 +96,16 @@ function storageKey(userId: string): string {
 }
 
 /** 这位用户在这个浏览器里存的自带密钥；存错了的那一项当作没有。 */
+let ownKeysAllowed = true;
+
+/** 部署者关了自行填写 API 时（账号里的 `own_keys_allowed`），存着的 key 不带也不显示，但不删：再打开时还在。
+ * 后端自己也不用带来的 key，这里是为了不白白送上去。 */
+export function setOwnKeysAllowed(allowed: boolean): void {
+  ownKeysAllowed = allowed;
+}
+
 export function localOwnKeys(userId: string): LocalOwnKeys {
+  if (!ownKeysAllowed) return {};
   let stored: unknown;
   try {
     stored = JSON.parse(localStorage.getItem(storageKey(userId)) ?? "{}");

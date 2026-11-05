@@ -531,6 +531,16 @@ export const zh = {
     noProviders: "部署者还没有配置登录方式。",
     guestSubmit: "游客登录",
     guestBusy: "正在登录…",
+    username: "名称",
+    password: "密码",
+    passwordAgain: "再输一次密码",
+    usernameRule: "2 到 20 个字，只能用文字、数字和下划线。",
+    passwordRule: "至少 8 个字符。目前忘记了找不回，请记好。",
+    passwordsDiffer: "两次输入的密码不一样",
+    passwordSubmit: "登录",
+    registerSubmit: "注册并登录",
+    toRegister: "没有账号？注册一个",
+    toSignIn: "已有账号？去登录",
     agreement: "登录即表示你已阅读{privacy}和{terms}。第一次登录时会请你确认一次。",
     refusedTitle: "没能登录",
     devTitle: "开发登录",
@@ -1048,6 +1058,7 @@ export const zh = {
       phoneTextureHint: "让角色的声音像隔着电话听筒。下次接通时生效；开启后，不同通话音质之间的差别会变小。",
     },
     ownKeys: {
+      notAllowed: "部署者没有开放自行填写 API，现在全部用部署者的服务。",
       // 外面两句和 ⓘ 里的详细说明，措辞跟隐私说明逐句对齐过（PR #62），改措辞要同步隐私说明。
       summary:
         "填了自己的 API key，这一项服务就改用你的额度，费用由你承担。密钥只保存在这台设备的这个浏览器里，换设备、换浏览器或清除浏览器数据后要重新填写。",
@@ -1802,6 +1813,10 @@ export const zh = {
           title: "服务状态",
           hint: "对话列表铃铛旁边给用户看各项服务正不正常：按统计时段里用部署者 key 的调用算出错率，时段里没有调用的，后台用最小的真实请求试一下（生图不试）。一项都不显示时用户那边没有按钮。保存后立刻生效。",
         },
+        own_keys: {
+          title: "自行填写 API",
+          hint: "打开时，用户可以在设置里填自己的 API 地址和密钥。关掉后设置里不再能填，服务器不再去连用户写的地址，已经存在用户浏览器里的密钥不再使用，他们的对话和通话改用部署者的服务并计入限额。保存后立刻生效，进行中的通话不受影响。",
+        },
         registration: {
           title: "注册方式",
           hint: "只让受邀的人注册时，新用户要从下面的邀请链接登录；已经注册的用户和管理者照常登录。保存后立刻生效。",
@@ -1909,6 +1924,7 @@ export const zh = {
           image: "显示「照片」（生图）",
         },
         registration: { mode: "谁能注册" },
+        own_keys: { enabled: "允许用户自行填写 API" },
         gpt_image: { style: "风格句" },
       } as Partial<Record<string, Record<string, string>>>,
       formHints: {

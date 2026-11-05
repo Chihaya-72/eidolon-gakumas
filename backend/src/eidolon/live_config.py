@@ -168,6 +168,7 @@ PROXY = "proxy"
 QWEATHER = "qweather"
 SERVICE_STATUS = "service_status"
 REGISTRATION = "registration"
+OWN_KEYS = "own_keys"
 
 LLM_FIELDS = (
     "protocol", "base_url", "api_key", "model", "max_tokens", "reasoning_effort", "extra_body",
@@ -826,6 +827,23 @@ class _Letters(_Item):
         return current | change
 
 
+class _OwnKeys(_Item):
+    """Whether users may bring their own API keys, as `.env` has it (they may by default); not
+    tried. Off, the keys their browsers bring go unused and their turns and calls run on the
+    deployer's and count, and the server asks no address they wrote for anything."""
+
+    name = OWN_KEYS
+    fields = ("enabled",)
+
+    def env(self) -> Values:
+        return {"enabled": self.c.settings.own_keys}
+
+    def candidate(self, current: Values, change: Values) -> Values:
+        if not isinstance(change.get("enabled"), bool):
+            raise ConfigInvalid(f"自带密钥需要是 true 或 false，而不是 {change.get('enabled')!r}")
+        return current | change
+
+
 class _Moments(_Item):
     """Whether characters post moments (GLOSSARY.md「朋友圈」), as `.env` has it (off by
     default), how many moments each user may have a day, a whole number from 1 up, which
@@ -1153,7 +1171,7 @@ class LiveConfig:
                 _Proxy(self), _ChatLLM(self), _MemoryLLM(self), _TTS(self), _STT(self),
                 _Image(self), _GptImage(self), _Judge(self), _JudgeThresholds(self), _Rerank(self),
                 _Limits(self), _Affinity(self), _ReachOuts(self), _Letters(self), _Moments(self), _QWeather(self), _Schedule(self),
-                _Cycles(self), _Bar(self), _ServiceStatus(self), _Registration(self),
+                _Cycles(self), _Bar(self), _ServiceStatus(self), _Registration(self), _OwnKeys(self),
             )
         }
         self._failures: dict[str, str] = {}
@@ -1396,6 +1414,11 @@ class LiveConfig:
         if settings is None or self.image_settings is None:
             return None
         return GptImageGenerator(settings, self._gpt_images)
+
+    @property
+    def own_keys_on(self) -> bool:
+        """Whether users may bring their own API keys now."""
+        return self.effective(OWN_KEYS)["enabled"]
 
     @property
     def registration(self) -> Registration:

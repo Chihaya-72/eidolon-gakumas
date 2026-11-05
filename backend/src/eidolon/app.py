@@ -39,7 +39,6 @@ from eidolon.greetings import (
 from eidolon.read_aloud import NoVoice, ReadAloudFailed
 from eidolon.reply_format import Segment, SegmentComplete, SegmentDelta, SpeechDelta
 from eidolon.own_keys import (
-    BroughtKeys,
     CallsUnavailable,
     NoSpeechSynthesis,
     OwnKeyFailed,
@@ -56,7 +55,7 @@ from eidolon.producer import (
     is_day_of_the_year,
     is_timezone,
 )
-from eidolon.account_api import OwnKeysInput, add_account_routes
+from eidolon.account_api import OwnKeysInput, add_account_routes, brought_keys
 from eidolon.cities_api import add_city_routes
 from eidolon.admin_api import add_admin_routes
 from eidolon.access_api import add_access_routes
@@ -480,7 +479,8 @@ def create_app(backend: Backend) -> FastAPI:
         if conversation:
             into = await conversation_to_call(conversation, user_id)
             character_id = into.character_id
-        return await calls.ice_servers(user_id, named_services(own), character_id)
+        own_services = named_services(own) if backend.config.own_keys_on else frozenset()
+        return await calls.ice_servers(user_id, own_services, character_id)
 
     @app.post("/api/offer")
     async def offer(
@@ -502,7 +502,7 @@ def create_app(backend: Backend) -> FastAPI:
             characters[conversation.character_id],
             CallOptions(body.call.muted, body.call.quality, device_timezone),
             description,
-            body.call.own_keys.brought() if body.call.own_keys else BroughtKeys(),
+            brought_keys(backend, body.call.own_keys),
         )
 
     @app.patch("/api/offer")
@@ -701,7 +701,7 @@ def create_app(backend: Backend) -> FastAPI:
         conversation = await conversation_or_404(conversation_id, user_id)
         if body.own_llm is not None:  # transitional: see `TurnInput.own_llm`
             raise HTTPException(422, "页面已经更新，请刷新后再发")
-        brought = body.own_keys.brought() if body.own_keys else BroughtKeys()
+        brought = brought_keys(backend, body.own_keys)
         # Cancelled meanwhile, what is let in never runs, so is settled as left.
         admission = await admissions.admitted(
             admissions.turn(user_id, conversation.character_id, brought),
@@ -717,7 +717,9 @@ def create_app(backend: Backend) -> FastAPI:
             async with outcome.running():
                 async with aclosing(engine.turn(
                     conversation, body.text, admission.llms, device_timezone,
-                    voiced_by=backend.own_keys.read_aloud_model(body.read_aloud_model),
+                    voiced_by=backend.own_keys.read_aloud_model(
+                        body.read_aloud_model if backend.config.own_keys_on else None
+                    ),
                     own_image=brought.image,
                 )) as turn:
                     async for event in turn:
@@ -740,7 +742,7 @@ def create_app(backend: Backend) -> FastAPI:
         saying why."""
         if segments is None:
             raise HTTPException(404, "没有这句话")
-        brought = body.own_keys.brought() if body.own_keys else BroughtKeys()
+        brought = brought_keys(backend, body.own_keys)
         voice_id = characters[conversation.character_id].voice_id
         try:
             audio = await backend.read_aloud.voice(user_id, voice_id, segments, brought)

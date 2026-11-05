@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { FailureNotice } from "@/components/app/FailureNotice";
 import { AppLink } from "@/components/app/AppLink";
+import { PasswordSignIn } from "@/components/app/PasswordSignIn";
 import { Button } from "@/components/ui/button";
 import { copy } from "@/i18n";
 import { interpolate } from "@/i18n/interpolate";
@@ -42,6 +43,7 @@ export function SignInChoices({
   }
   return (
     <section aria-label={t.signInRegion} className={cn("flex flex-col gap-3", className)}>
+      {options?.password_login && <PasswordSignIn invite={invite} />}
       {options?.providers.map((provider, i) => (
         // 登录要整页跳到后端的 OAuth 入口，用普通的 <a>，不走客户端路由。
         <Button
@@ -56,12 +58,12 @@ export function SignInChoices({
         </Button>
       ))}
       {options?.guest_login && (
-        <Button size="lg" className="w-full" disabled={busy} onClick={enterAsGuest}>
+        <Button size="lg" variant={options.password_login ? "outline" : "default"} className="w-full" disabled={busy} onClick={enterAsGuest}>
           {busy ? t.guestBusy : t.guestSubmit}
         </Button>
       )}
       {failure && <FailureNotice failure={failure} />}
-      {options && options.providers.length === 0 && !options.dev_login && !options.guest_login && (
+      {options && options.providers.length === 0 && !options.dev_login && !options.guest_login && !options.password_login && (
         <p className="text-body text-muted-foreground">{t.noProviders}</p>
       )}
       <p className="text-sm text-muted-foreground">

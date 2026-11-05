@@ -71,6 +71,7 @@ export function OwnKeysSettings() {
   const [failure, setFailure] = useState<Failure | null>(null);
   // 服务器对哪几项服务答的豁免；和现在存的对不上（还没问到）或问失败时，不显示那句说明。
   const [answered, setAnswered] = useState<{ services: string; exemption: LimitExemption } | null>(null);
+  const [allowed, setAllowed] = useState(true);
   const services = ownServices(kept).join(",");
 
   useEffect(() => {
@@ -94,6 +95,7 @@ export function OwnKeysSettings() {
     getAccount().then(
       (account) => {
         setUserId(account.id);
+        setAllowed(account.own_keys_allowed);
         setExemptingKeys(account.exempting_keys);
         setKept(localOwnKeys(account.id));
         setCanKeep(canKeepOwnKeys());
@@ -110,6 +112,13 @@ export function OwnKeysSettings() {
     );
   }
   if (!userId) return null;
+  if (!allowed) {
+    return (
+      <SettingsSection>
+        <p className="text-body text-muted-foreground">{t.notAllowed}</p>
+      </SettingsSection>
+    );
+  }
 
   /** 改了浏览器里存的 key，再按存下的显示：存不下的就是没存。 */
   const change = (keep: () => void) => {
