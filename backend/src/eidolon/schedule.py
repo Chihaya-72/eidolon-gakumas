@@ -10,8 +10,9 @@ number shuffles every idol (the characters in idol order, but the office's staff
 world setting tells them) into four groups, the first ones a member more where they do not
 divide evenly, and each week of the round takes its group, so every idol has a week in each
 round. The week's name then draws each of its idols two or three jobs (`JOBS_EACH`), no job
-twice in the week, at least one of work and at most one private each, `LENGTH_IN_ALL` slots
-in all; drawn again until they are, up to `DRAW_TRIES` times, and failing that it is the job
+twice in the week, at least one of work and at most one private each. `LENGTH_IN_ALL` is
+the total for seven idols; the week's bounds scale with its actual group size, rounded
+outwards. Drawn again until they fit, up to `DRAW_TRIES` times, and failing that it is the job
 list's fault (`ScheduleError`), which a test of the repository's list rules out.
 
 **Schedules.** A producer's week is Monday to Sunday where they are (their effective time
@@ -103,8 +104,11 @@ JOBS_EACH = (2, 3)
 """How many jobs each idol of the week may be given."""
 
 LENGTH_IN_ALL = (24, 27)
-"""How many slots a week's jobs take in all, at least and at most: more than the 21 a week
-has, so that not all fit."""
+"""How many slots seven idols' jobs take in all, at least and at most. Scaled to the
+week's actual group size; seven idols still offer more than a week's 21 slots."""
+
+LENGTH_IDOLS = 7
+"""The group size the total slot bounds were designed for."""
 
 DRAW_TRIES = 100
 """How many times a week is drawn before the job list is blamed."""
@@ -333,7 +337,9 @@ def draw_week(
     start = group * size + min(group, more)
     of_the_week = shuffled[start:start + size + (group < more)]
     drawing = random.Random(f"week {week.isoformat()}")
-    least, most = LENGTH_IN_ALL
+    count = len(of_the_week)
+    least = LENGTH_IN_ALL[0] * count // LENGTH_IDOLS
+    most = (LENGTH_IN_ALL[1] * count + LENGTH_IDOLS - 1) // LENGTH_IDOLS
     for _ in range(DRAW_TRIES):
         drawn = _draw_once(drawing, of_the_week, jobs)
         if drawn is not None and least <= sum(j.length for _, j in drawn) <= most:
