@@ -758,6 +758,7 @@ async def test_what_came_as_the_backend_was_down_is_not_made_up_for_but_put_off(
 async def test_she_does_not_reach_out_to_a_user_the_admin(
     make_client: ClientFactory, settings: Settings, github: FakeIdentityProvider, why: str
 ):
+    make_client(FakeLLM(), user="first-admin")
     client, _, clock, conversation = await talked(
         make_client, settings=replace(settings, admins=frozenset({ADMIN})), random=FakeRandom()
     )

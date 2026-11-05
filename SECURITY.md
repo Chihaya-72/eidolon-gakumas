@@ -6,7 +6,7 @@
 
 ## 报告漏洞
 
-**请不要开公开 issue。** 用 GitHub 的私密漏洞报告：仓库的 Security 页 → **Report a vulnerability**（[直接打开](https://github.com/Sallyn0225/eidolon-sc/security/advisories/new)）。报告只有维护者能看到。
+**请不要开公开 issue。** 用 GitHub 的私密漏洞报告：仓库的 Security 页 → **Report a vulnerability**（[直接打开](https://github.com/Chihaya-72/eidolon-gakumas/security/advisories/new)）。报告只有维护者能看到。
 
 报告里请写上：
 
@@ -41,4 +41,4 @@
 
 ---
 
-**English:** Please do not open a public issue for security problems. Report them privately via [GitHub's private vulnerability reporting](https://github.com/Sallyn0225/eidolon-sc/security/advisories/new). Only the latest `main` branch (and the `:main` images on GHCR) receives fixes. Please test only against an instance you deployed yourself.
+**English:** Please do not open a public issue for security problems. Report them privately via [GitHub's private vulnerability reporting](https://github.com/Chihaya-72/eidolon-gakumas/security/advisories/new). Only the latest `main` branch (and the `:main` images on GHCR) receives fixes. Please test only against an instance you deployed yourself.

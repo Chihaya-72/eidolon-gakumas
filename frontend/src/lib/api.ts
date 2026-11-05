@@ -1,3 +1,4 @@
+import { queuedOperation, waitForService, rememberBarKeys, forgetBarKeys } from "@/lib/serviceQueue";
 import type { AffinityChange, AffinityStatus } from "@/lib/affinity";
 import type { Provider } from "@/lib/signIn";
 import {
@@ -35,8 +36,8 @@ export type Character = {
   scsp_avatar_url: string | null;
   /** Her image colour, `#rrggbb`; the interface only uses what `herVars()` derives from it. */
   color: string;
-  /** Her birthday in the original, `MM-DD`; February 29 falls on February 28 in a year without it. */
-  birthday: string;
+  /** Her birthday in the original, `MM-DD`, or null if unpublished. February 29 falls on February 28 in a year without it. */
+  birthday: string | null;
   background_url: string | null;
   /** Her Spine stand on the call layer; null (her call background alone) unless the deployment
    * configures her idol, her default outfit and where the stands are served from. */
@@ -206,8 +207,12 @@ export type ReachOut = {
 /** What a conversation's record holds, in order. */
 export type Recorded = Message | ConversationEvent | ReachOut;
 
+/** What she looks up in a turn (GLOSSARY.md「查看」): the weather, her schedule, or the story, recalled. */
+export type Look = "weather" | "schedule" | "story";
+
 /** A turn's events: `user`, then `photo` if she sends one (its id, before her first words), any
- * `delta`s, then `photos-used-up` if the user asked for a photo with this hour's used up (when they
+ * `delta`s, `looking-up` among them or before them as she looks something up (what, each once, in
+ * the order she looks it up; not recorded), then `photos-used-up` if the user asked for a photo with this hour's used up (when they
  * may ask again, ISO), and `done`, or `error`. `done` says too where the turn left her affinity, null
  * while affinity is off, her ending the conversation after it, recorded after her reply, if she
  * did, what the turn was rewarded with (lib/rewards), null if nothing, and her being unwell,
@@ -216,6 +221,7 @@ export type TurnEvent =
   | { type: "user"; text: string }
   | { type: "photo"; id: string; status: "pending" }
   | { type: "delta"; segment: number; lang: "ja" | "zh"; text: string }
+  | { type: "looking-up"; what: Look[] }
   | { type: "photos-used-up"; retry_at: string }
   | {
       type: "done";
@@ -456,7 +462,25 @@ export function followRedirect(res: Response): void {
  * the time zone header, and sends the browser on when it has to sign in, or agree to the terms,
  * first. Read the response with `json` or `expectNoContent` for the backend's reason on failure. */
 export async function api(path: string, init: RequestInit = {}): Promise<Response> {
-  const res = await fetch(path, { ...init, headers: apiHeaders(init.headers) });
+  const operation = queuedOperation(path, init);
+  const reservation = operation ? await waitForService(operation.kind, path, { bypass: operation.bypass, signal: init.signal }) : null;
+  const headers = apiHeaders(init.headers);
+  if (reservation?.ticket) headers.set("x-queue-ticket", reservation.ticket);
+  let res: Response;
+  try {
+    res = await fetch(path, { ...init, headers });
+    if (!res.ok) await reservation?.cancelUnused();
+  } catch (e) {
+    await reservation?.cancelUnused();
+    throw e;
+  }
+  if (res.status === 403 && typeof window !== "undefined") {
+    const body = await res.clone().json().catch(() => null);
+    if (body?.code === "access_required" || body?.code === "access_banned") {
+      const returnTo = window.location.pathname + window.location.search;
+      window.location.assign(`/access?returnTo=${encodeURIComponent(returnTo)}`);
+    }
+  }
   followRedirect(res);
   return res;
 }
@@ -849,14 +873,20 @@ export async function getMomentsUnseen(): Promise<boolean> {
  * up to her order. Refused while the bar is closed (409), or over the limit (429, `retryAt` saying
  * when). Aborting `signal` closes the call, and the server leaves the visit. */
 export async function enterBar(userId: string, signal?: AbortSignal): Promise<AsyncGenerator<VisitEvent>> {
+  const ownKeys = turnOwnKeys(userId);
   const res = await api("/api/bar/visits", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ own_keys: turnOwnKeys(userId) }),
+    body: JSON.stringify({ own_keys: ownKeys }),
     signal,
   });
   if (!res.ok) await json(res);
-  return serverSentEvents<VisitEvent>(res);
+  return (async function* () {
+    for await (const event of serverSentEvents<VisitEvent>(res)) {
+      if (event.type === "visit") rememberBarKeys(event.visit_id, !!ownKeys?.llm);
+      yield event;
+    }
+  })();
 }
 
 /** Serves her what the bar counter holds (lib/barMixer `served`). Once the server took it, the
@@ -891,6 +921,7 @@ export async function retryBarVisit(visitId: string, signal?: AbortSignal): Prom
 /** Leaves the visit: over, not to be come back to. `keepalive` as the page goes away. */
 export async function leaveBarVisit(visitId: string, { keepalive = false } = {}): Promise<void> {
   const path = `/api/bar/visits/${encodeURIComponent(visitId)}`;
+  forgetBarKeys(visitId);
   await expectNoContent(await api(path, { method: "DELETE", keepalive }));
 }
 

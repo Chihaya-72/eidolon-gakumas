@@ -19,7 +19,7 @@ import { playHref, type PlaySubpage } from "@/lib/playRoute";
 const t = copy.play;
 
 /** What the calendar card is made of: the calendar, with each character's name and birthday. */
-export type CalendarCardContext = CalendarView<{ name: string; birthday: string }>;
+export type CalendarCardContext = CalendarView<{ name: string; birthday: string | null }>;
 
 /** What the cycles card is made of: today, every character's records and estimate, and the short
  * name of each (lib/schedule's `shortName`). */

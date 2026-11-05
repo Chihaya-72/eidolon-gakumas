@@ -73,6 +73,7 @@ from eidolon.config import ImageSettings
 from eidolon.gpt_image_prompt import GptPrompt
 from eidolon.image_generation import TIME_LIMIT, GptImageGenerator, ImageFailed, ImageGenerator
 from eidolon.own_keys import masked_cause
+from eidolon.service_queue import Lease, ServiceQueue
 from eidolon.photo_prompt import Crossing, PictureTag, image_prompt, picture_prompt, read_tag
 from eidolon.store import Photo, PhotoFailure, Store
 from eidolon.usage import OverLimit, UsageLimiter
@@ -227,6 +228,8 @@ class Photos:
         usage: UsageLimiter,
         own: Callable[[ImageSettings], ImageGenerator],
         gpt: Callable[[], GptImageGenerator | None] = lambda: None,
+        *,
+        queue: ServiceQueue | None = None,
     ) -> None:
         """`generator` says, whenever asked, the deployer's image generation in effect;
         None while there is none; `gpt`, GPT Image in effect beside it, likewise. `own`
@@ -240,6 +243,7 @@ class Photos:
         self._gpt = gpt
         self._activity = activity
         self._usage = usage
+        self._service_queue = queue
         self._queues: dict[tuple[QueuedService, str, int], _Queue] = {}
         self._generating: dict[str, _Generating] = {}
         self._tasks: set[asyncio.Task[None]] = set()
@@ -325,18 +329,41 @@ class Photos:
         generation, and generate it by `until` (the running loop's time), its request
         recorded under `turn`; given back if not sent."""
         outcome: tuple[bytes | None, PhotoFailure | None]
+        lease = Lease()
         try:
-            use = await self._usage.take(user_id, "photo", exempt=own is not None)
+            # An asynchronous photo must never claim its parent HTTP request's ticket.
+            if self._service_queue is not None:
+                lease = await self._service_queue.acquire(
+                    user_id, "photo", bypass=own is not None, resource=photo_id
+                )
+                # A whole voice call can own the shared slot longer than the image
+                # service's deadline. Give generation its normal budget once admitted.
+                until = asyncio.get_running_loop().time() + TIME_LIMIT
+            try:
+                if self._generating[photo_id].dropped:
+                    self._forget(photo_id)
+                    return
+                if self._generator() is None and own is None:
+                    raise ImageFailed("service_error", "image generation is off")
+                use = await self._usage.take(user_id, "photo", exempt=own is not None)
+                try:
+                    await lease.start()
+                    outcome = await self._generated(photo_id, character, tag, own, until, turn)
+                except BaseException:
+                    await use.give_back()
+                    raise
+                if outcome[0] is None:
+                    await use.give_back()
+            finally:
+                await asyncio.shield(lease.release())
         except OverLimit:
             log.info("photo %s: the user's photos this hour were used up meanwhile", photo_id)
             outcome = None, "used_up"
+        except TimeoutError:
+            outcome = None, "timeout"
         except Exception:  # never left being generated for good
             log.exception("counting photo %s failed", photo_id)
             outcome = None, "service_error"
-        else:
-            outcome = await self._generated(photo_id, character, tag, own, until, turn)
-            if outcome[0] is None:
-                await use.give_back()
         generating = self._generating[photo_id]
         if generating.dropped:
             self._forget(photo_id)

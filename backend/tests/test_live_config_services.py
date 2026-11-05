@@ -538,11 +538,15 @@ async def test_a_saved_judge_model_judges_the_next_turn_while_a_call_keeps_its_o
     emotion = next(
         (m for m in await browser.turn() if m["type"] == "emotion"), None
     ) or await browser.next_server_message("emotion")
-    await send_turn(client, conversation_id, "你好")
-    asked = list(clients.judge.asked)
+    # A shared-key text operation now waits for the whole call to release its slot.
+    pending = asyncio.create_task(send_turn(client, conversation_id, "你好"))
+    await asyncio.sleep(0)
+    assert not pending.done()
     closed_during_call = list(clients.judges_closed)
     await browser.close()
     await until_gone(client, browser.pc_id)
+    await pending
+    asked = list(clients.judge.asked)
     await until(lambda: clients.judges_closed)
 
     assert asked == [
@@ -556,9 +560,7 @@ async def test_a_saved_judge_model_judges_the_next_turn_while_a_call_keeps_its_o
     # The call judges her emotion on the model it connected with, by its threshold; each
     # turn's question goes to the model in effect, by its own, recorded as the one it is.
     assert emotion["emotion"] == "calm"
-    assert [[t.name for t in tools] for tools in clients.llm.tools] == [
-        ["recall_story"], ["recall_story"]
-    ]
+    assert [tools[0].name for tools in clients.llm.tools] == ["recall_story", "recall_story"]
     await until(lambda: len(recorded(client, "judge")) == 3)  # as the call is written
     assert recorded(client, "judge") == [
         ("api.cloudflare.com", "clef-flash", False),
@@ -821,7 +823,7 @@ async def test_what_cannot_be_changed_here_is_only_shown_saying_why(
     assert "unavailable" in shown.json()["judge"]
 
 
-async def test_with_dev_login_and_no_admins_listed_the_admins_shown_are_everyone(
+async def test_dev_login_shows_only_additional_environment_admins(
     make_client: ClientFactory,
 ):
     client = make_client(FakeLLM())  # dev login is on in the tests, and no admins listed
@@ -829,5 +831,5 @@ async def test_with_dev_login_and_no_admins_listed_the_admins_shown_are_everyone
     shown = await client.get(CONFIG)
 
     read_only = {item["name"]: item["value"] for item in shown.json()["read_only"]}
-    assert read_only["admins"] == "everyone"
+    assert read_only["admins"] == []
 

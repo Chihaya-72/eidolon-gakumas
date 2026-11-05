@@ -339,10 +339,12 @@ class Retrieval:
         affinity: bool = False,
         photo: bool = False,
         days: Days | None = None,
+        recalling: Callable[[], None] = lambda: None,
     ) -> Retrieved:
-        """Look up what this turn needs, finding the user's memories through `memory`; and
-        judge what it does to her affinity, in her `days` if she is in them, and whether it
-        asks her for a photo, if asked to."""
+        """Look up what this turn needs, finding the user's memories through `memory`, and
+        telling `recalling` as it begins recalling the story for her (GLOSSARY.md「查看」);
+        and judge what it does to her affinity, in her `days` if she is in them, and whether
+        it asks her for a photo, if asked to."""
         query = memory_query(history, text)
         embedding = asyncio.ensure_future(self._embed(query))
         finding = asyncio.ensure_future(self._find(character, embedding, memory))
@@ -360,6 +362,8 @@ class Retrieval:
                 retrieved = Retrieved(None)
             else:
                 looked_up = True
+                if need == "recall":
+                    recalling()
                 retrieved = await self._look_up(character, text, query, await finding, memory, need)
         finally:
             for task in (finding, embedding):  # needing nothing, or no longer anything at all
@@ -598,7 +602,7 @@ def _transcript(episode: Episode) -> str:
 
 _JUDGE_QUESTION = {
     "type": "noul",
-    "instructions": "角色扮演对话中，角色是《偶像大师 闪耀色彩》283 事务所的偶像（或事务员），正在和制作人对话。"
+    "instructions": "角色扮演对话中，角色的身份和与用户的关系以所提供的人设为准，正在和制作人对话。"
     "可检索的内容有三类：剧情，即她亲身经历过的原作剧情；角色资料，即关于她自己和身边人物的设定"
     "（档案、人物关系等）；作品资料，即作品里的歌曲、唱片和演出（演唱者、发售日、曲目、"
     "演出的日期、会场和出演者）。回答制作人最新的一句话，是否需要检索这些内容？",
@@ -619,7 +623,7 @@ _RECALL_QUESTION = {
 }
 _ABOUT_PRODUCER_QUESTION = {
     "type": "noul",
-    "instructions": "角色扮演对话中，角色是《偶像大师 闪耀色彩》283 事务所的偶像（或事务员），正在和制作人对话。"
+    "instructions": "角色扮演对话中，角色的身份和与用户的关系以所提供的人设为准，正在和制作人对话。"
     "制作人最新的一句话，是否说起或问起制作人自己的事（生活、近况、工作安排、计划、家人、宠物、喜好、"
     "身体状况等），而制作人以前对偶像们说过的相关的事可能有助于回应？",
     "criteria": {

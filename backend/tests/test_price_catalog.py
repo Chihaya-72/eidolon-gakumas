@@ -387,6 +387,7 @@ async def test_a_model_without_a_price_has_the_catalogs_fetched_again_at_most_ev
 
 
 async def test_only_admins_have_the_catalogs_fetched(make_client: ClientFactory):
+    make_client(FakeLLM(), "first-admin")
     catalog = FakeCatalog()
     client = make_client(FakeLLM(), catalog_transport=catalog.transport())
 

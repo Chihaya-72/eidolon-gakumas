@@ -8,14 +8,12 @@ import { headers } from "next/headers";
 
 import { copy } from "@/i18n";
 
-import { TIER_SCRIPT } from "./tierScript";
-
 /** 页面铺到 iPhone 的刘海和底部横条下面，上下不留一条底色。 */
 export const viewport: Viewport = { viewportFit: "cover" };
 
 /**
  * 标题、描述和分享卡片（Open Graph、Twitter 卡片）。卡片的图是同目录下的 opengraph-image.jpg
- * （scripts/landing-og.mjs 生成），Next 按文件约定给 `/` 和 `/about` 都加上；X 没有 twitter:image 时
+ * （scripts/landing-og.mjs 从当前欢迎页截取），Next 按文件约定给 `/` 和 `/about` 都加上；X 没有 twitter:image 时
  * 用 og:image，不另放一份。卡片要绝对地址，而自托管的构建不知道部署在哪个域名下：按这次请求的地址拼
  * （Caddy 转发时带着原来的 Host 和 X-Forwarded-Proto）。
  */
@@ -56,7 +54,7 @@ function requestOrigin(host: string | null, proto: string | null): URL | undefin
 // 落地页的字体：按落地页实际用字做的静态子集，自托管（scripts/landing-fonts.mts 生成，改了文案或角色
 // 要重新生成）。每种两份：`-act0` 只有第 0 幕上的字，很小，首屏预载它；完整子集不预载，等页面要用到
 // 第 0 幕以外的字时再取，免得和首屏的 CSS 抢带宽。样式表里两份排在同一个字体栈里，前一份没有的字
-// 落到后一份（landing.css 的 --lp-ja 等）。
+// 落到后一份（welcome/welcome.css 的 --wl-ja 等）。
 // 回退字体的度量由 landing.css 里的字体栈负责：子集的度量不代表整套字体，不让 next/font 去推算。
 const jaAct0 = localFont({
   src: "./fonts/shippori-mincho-b1-600-act0.woff2",
@@ -102,18 +100,12 @@ const fontVariables = [jaAct0, ja, zhTitleAct0, zhTitle, zhAct0, zh].map((f) => 
 
 /**
  * 落地页自己的根 layout（ADR-0016 修订）：不加载应用根 layout 里 next/font 的 CJK 字体，那些切片 CSS
- * 会阻塞首屏；全局样式表只为登录面板和按钮（shadcn）引入。永远深色，不跟随系统。
- * 和应用之间跳转是整页加载。
- *
- * <head> 里的内联脚本在页面画出来之前定档，写到 <html> 的 data-lp-* 上（tierScript.ts）；
- * 这几个属性不是 React 渲染的，所以 <html> 不比对它们（suppressHydrationWarning）。
+ * 会阻塞首屏；全局样式表只为登录面板和按钮（shadcn）引入。登录面板保持深色，各页使用欢迎页自己的底色。
+ * 和应用之间跳转是整页加载。欢迎页按系统的减少动态效果设置调整动画，不再探测旧页面的 WebGL 档位。
  */
 export default function LandingLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-CN" className={`dark ${fontVariables}`} suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: TIER_SCRIPT }} />
-      </head>
       <body>{children}</body>
     </html>
   );

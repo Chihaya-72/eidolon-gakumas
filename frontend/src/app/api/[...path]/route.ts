@@ -11,7 +11,7 @@ async function forward(request: Request, { params }: { params: Promise<{ path: s
   const { search } = new URL(request.url);
   const url = `${BACKEND_URL}/api/${path.map(encodeURIComponent).join("/")}${search}`;
   const headers = new Headers();
-  for (const name of ["content-type", "cookie", "origin", "x-timezone", "if-none-match"]) {
+  for (const name of ["content-type", "cookie", "origin", "x-timezone", "if-none-match", "x-eidolon-client-ip", "x-queue-ticket"]) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
@@ -23,6 +23,7 @@ async function forward(request: Request, { params }: { params: Promise<{ path: s
     body: hasBody ? request.body : undefined,
     duplex: "half", // a stream as the body, sent while it is still being read
     cache: "no-store",
+    signal: request.signal,
     redirect: "manual", // the browser follows the backend's redirects itself
   };
   const res = await fetch(url, init);

@@ -16,6 +16,7 @@ import {
   type CallEvent,
 } from "@/lib/api";
 import type { CallPreferences } from "@/lib/callPreferences";
+import { waitForService } from "@/lib/serviceQueue";
 import { callOwnKeys } from "@/lib/localOwnKeys";
 import { Microphone, type MicInUse } from "@/lib/microphone";
 
@@ -33,6 +34,7 @@ export const SPEAKING = [
 ] as const;
 
 export type CallHandlers = {
+  signal?: AbortSignal;
   /** The microphone is open, the call still dialing. On phones opening it puts the system into
    * call audio, which cuts off whatever is playing for a moment; sounds started from now on are
    * not cut off by it. */
@@ -90,7 +92,16 @@ export async function startCall(
 ): Promise<Call> {
   const { ownKeys, services } = callOwnKeys(userId);
   const { iceServers, maxCallSeconds, callExempt } = await getCallSetup(conversationId, services);
-  const microphone = await Microphone.open(preferences.micId);
+  const reservation = await waitForService("call", "/api/offer", {
+    target: conversationId, signal: handlers.signal,
+    bypass: ["llm", "tts", "stt"].every((service) => services.includes(service as typeof services[number])),
+  });
+  let microphone: Microphone;
+  try {
+    handlers.signal?.throwIfAborted();
+    microphone = await Microphone.open(preferences.micId);
+    if (handlers.signal?.aborted) { await microphone.disconnect(); handlers.signal.throwIfAborted(); }
+  } catch (e) { await reservation.cancelUnused(); throw e; }
   handlers.onMicOpen();
   let hungUp = false;
   let client: PipecatClient | null = null;
@@ -124,7 +135,11 @@ export async function startCall(
     };
     if (ownKeys) requestData.own_keys = ownKeys;
     await client.connect({
-      webrtcRequestParams: { endpoint: "/api/offer", headers: apiHeaders(), requestData },
+      webrtcRequestParams: {
+        endpoint: "/api/offer",
+        headers: apiHeaders(reservation.ticket ? { "x-queue-ticket": reservation.ticket } : undefined),
+        requestData,
+      },
     });
     // 只有开始通话的那次 offer 要带 key。Pipecat 按引用持有这份请求数据，之后每次重新协商
     // 都把同一份再发一遍，后端重新协商时也不看它；所以接通后从这份数据里删掉 key，之后的
@@ -135,6 +150,7 @@ export async function startCall(
     hungUp = true;
     await client?.disconnect().catch(() => {});
     await microphone.disconnect();
+    await reservation.cancelUnused();
     throw await explain(e);
   }
 

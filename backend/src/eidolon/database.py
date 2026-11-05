@@ -43,6 +43,7 @@ USER_DATA = [
     ("achievement_progress", "user_id = ?"),
     ("achievement_stages", "user_id = ?"),
     ("usage", "user_id = ?"),
+    ("service_queue_uses", "user_id = ?"),
     ("user_limits", "user_id = ?"),
     ("reach_outs_off", "user_id = ?"),
     ("moment_circle", "moment_id IN (SELECT id FROM moments WHERE user_id = ?)"),
@@ -102,7 +103,8 @@ NOT_USER_DATA = frozenset(
         "price_catalog_offers", "price_catalog_state", "banned_identities", "announcements",
         "sponsor", "gifts_opened", "reset_card_grants", "backup_runs", "record_rollups",
         "taken_rollups", "call_rollups", "spread_rollups", "achievements_launched",
-        "weekly_jobs", "invites",
+        "weekly_jobs", "invites", "admin_bootstrap",
+        "access_settings", "access_attempts", "access_bans", "access_grants",
     }
 )
 """Every other table: the story corpus, the embedded text set, the calls to outside

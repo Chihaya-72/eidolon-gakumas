@@ -12,6 +12,7 @@ import { LLMProviderPicker, type ModelLister } from "@/components/app/LLMProvide
 import { ModelChoiceField } from "@/components/app/ModelChoiceField";
 import { EffortField, ExtraBodyField, useEffortHint } from "@/components/app/ReasoningEffortFields";
 import { OpenFormProvider, useOpenForm } from "@/components/admin/OpenForm";
+import { AdminAccess } from "@/components/admin/AdminAccess";
 import { AdminInvites } from "@/components/admin/AdminInvites";
 import { AdminSponsor } from "@/components/admin/AdminSponsor";
 import { ResetCardGrants } from "@/components/admin/ResetCardGrants";
@@ -128,6 +129,7 @@ export function AdminConfig({ initialTab }: { initialTab: ConfigTab }) {
                     {item === "affinity" && <ResetCardGrants isOn={isOn(config.affinity)} />}
                   </ItemCard>
                 ))}
+                {name === "access" && <AdminAccess />}
                 {name === "registration" && <AdminInvites />}
                 {name === "sponsor" && <AdminSponsor />}
                 {name === "prices" && <AdminPrices />}

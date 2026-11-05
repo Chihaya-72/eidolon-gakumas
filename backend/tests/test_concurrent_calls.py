@@ -1,8 +1,8 @@
 """How many calls there may be at once: each user one at a time, a new one, let through,
 hanging up the one they had, and all users together as many as the limits say
-(`UsageLimits.concurrent_calls`). A call is under way from being placed until it is over;
-one refused is refused before anything is asked of it, both as the browser asks what it
-needs to call and as it places the call."""
+(`UsageLimits.concurrent_calls`). Shared calls wait in the fair service queue before
+occupying call capacity; fully self-funded calls check the hard capacity limit immediately,
+both as the browser asks what it needs to call and as it places the call."""
 
 import asyncio
 from dataclasses import replace
@@ -20,6 +20,14 @@ from tests.test_service_status import backend_of
 from tests.test_text_turn import start_conversation
 
 BUSY = "现在打电话的人太多，稍后再试"
+OWN_KEYS = {
+    "llm": {
+        "base_url": "https://llm.example.com/v1", "api_key": "sk-my-own-llm-cccc",
+        "model": "m", "protocol": "chat-completions",
+    },
+    "tts": {"api_key": "fish-my-own-key-aaaa"},
+    "stt": {"api_key": "soniox-my-own-key-bbbb", "provider": "soniox"},
+}
 
 
 @pytest.fixture
@@ -67,12 +75,12 @@ async def test_a_call_placed_while_the_users_last_is_still_being_placed_is_refus
     let_in = admissions.call
     letting_in, may_go_on = asyncio.Event(), asyncio.Event()
 
-    async def call(*args: Any) -> Any:
+    async def call(*args: Any, **kwargs: Any) -> Any:
         """The first call is held being placed, until it may go on."""
         if not letting_in.is_set():
             letting_in.set()
             await may_go_on.wait()
-        return await let_in(*args)
+        return await let_in(*args, **kwargs)
 
     monkeypatch.setattr(admissions, "call", call)
     async with open_browser() as a, open_browser() as b:
@@ -90,19 +98,21 @@ async def test_calls_at_once_are_limited_across_users(
     make_client: ClientFactory, one_call_at_once: Settings, browser: Browser
 ):
     client = make_client(FakeLLM(), settings=one_call_at_once)
-    await browser.call(client, conversation_id=await start_conversation(client))
+    await browser.call(client, conversation_id=await start_conversation(client), own_keys=OWN_KEYS)
     await browser.connect()
     assert browser.pc_id is not None
 
     async with another_user(client, "hazuki") as other:
         theirs = await start_conversation(other)
-        asked = await other.get("/api/ice-servers", params={"conversation": theirs})
+        asked = await other.get(
+            "/api/ice-servers", params={"conversation": theirs, "own": "llm,stt,tts"}
+        )
         async with open_browser() as second:
-            refused = await second.call(other, conversation_id=theirs)
+            refused = await second.call(other, conversation_id=theirs, own_keys=OWN_KEYS)
         await browser.hang_up()
         await until_gone(client, browser.pc_id)
         async with open_browser() as again:
-            after = await again.call(other, conversation_id=theirs)
+            after = await again.call(other, conversation_id=theirs, own_keys=OWN_KEYS)
 
     assert asked.status_code == 503
     assert asked.json() == {"detail": BUSY, "code": "calls_busy"}
@@ -121,7 +131,28 @@ async def test_a_call_counts_from_being_placed(
     async with another_user(client, "hazuki") as other, open_browser() as a, open_browser() as b:
         theirs = await start_conversation(other)
         placed = await asyncio.gather(
-            a.call(client, conversation_id=mine), b.call(other, conversation_id=theirs)
+            a.call(client, conversation_id=mine, own_keys=OWN_KEYS),
+            b.call(other, conversation_id=theirs, own_keys=OWN_KEYS),
         )
 
     assert sorted(res.status_code for res in placed) == [200, 503]
+
+
+async def test_shared_calls_wait_in_queue_even_when_the_call_capacity_is_one(
+    make_client: ClientFactory, one_call_at_once: Settings, browser: Browser,
+):
+    client = make_client(FakeLLM(), settings=one_call_at_once)
+    await browser.call(client, conversation_id=await start_conversation(client))
+    await browser.connect()
+    assert browser.pc_id is not None
+    async with another_user(client, "hazuki") as other, open_browser() as second:
+        theirs = await start_conversation(other)
+        setup = await other.get("/api/ice-servers", params={"conversation": theirs})
+        assert setup.status_code == 200, setup.text
+        pending = asyncio.create_task(second.call(other, conversation_id=theirs))
+        await asyncio.sleep(0.05)
+        assert not pending.done()
+        await browser.hang_up()
+        response = await asyncio.wait_for(pending, timeout=TIMEOUT)
+        assert response.status_code == 200, response.text
+        await second.connect()

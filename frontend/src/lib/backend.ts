@@ -1,3 +1,4 @@
+import { cookies, headers as requestHeaders } from "next/headers";
 // Server side only: where the backend is, for the API proxy and the server components
 // that ask the backend before rendering.
 
@@ -8,7 +9,7 @@ export const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8000";
 /** The admin console's front door, asked with the browser's cookies: the admin, or null
  * when the backend says there is no admin console for this browser (404). */
 export async function getAdmin(cookie: string): Promise<{ name: string } | null> {
-  const res = await fetch(`${BACKEND_URL}/api/admin`, { headers: { cookie }, cache: "no-store" });
+  const res = await fetch(`${BACKEND_URL}/api/admin`, { headers: await forwardedHeaders(cookie), cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`后台接口出错（${res.status}）`);
   return res.json();
@@ -24,23 +25,26 @@ const SESSION_COOKIE = "eidolon_session";
 export async function isSignedIn(cookie: string): Promise<boolean> {
   if (!cookie.split(/;\s*/).some((pair) => pair.startsWith(`${SESSION_COOKIE}=`))) return false;
   try {
-    const res = await fetch(`${BACKEND_URL}/api/account`, { headers: { cookie }, cache: "no-store" });
+    const res = await fetch(`${BACKEND_URL}/api/account`, { headers: await forwardedHeaders(cookie), cache: "no-store" });
     return res.ok || res.status === CONSENT_REQUIRED;
   } catch {
     return false;
   }
 }
 
-/** How long the landing page keeps what it asks the backend for (the character list, the ways to
- * sign in, its pictures) before asking again. */
-const LANDING_REVALIDATE_SECONDS = 60;
+/** Forward both the access cookies and the proxy's client identity during server rendering. */
+async function forwardedHeaders(cookie: string): Promise<Headers> {
+  const headers = new Headers({ cookie });
+  const ip = (await requestHeaders()).get("x-eidolon-client-ip");
+  if (ip) headers.set("x-eidolon-client-ip", ip);
+  return headers;
+}
 
-/** What the landing page asks the backend for at `path`, kept for a minute rather than asked for on
- * every visit, so a visitor's first screen does not wait on the backend; `otherwise` when the
- * backend fails or cannot be reached. */
+/** Landing data is private to the access-verified browser; never cache it across visitors. */
 async function forLanding<T>(path: string, otherwise: T): Promise<T> {
+  const forwarded = await forwardedHeaders((await cookies()).toString());
   try {
-    const res = await fetch(`${BACKEND_URL}${path}`, { next: { revalidate: LANDING_REVALIDATE_SECONDS } });
+    const res = await fetch(`${BACKEND_URL}${path}`, { headers: forwarded, cache: "no-store" });
     return res.ok ? await res.json() : otherwise;
   } catch {
     return otherwise;

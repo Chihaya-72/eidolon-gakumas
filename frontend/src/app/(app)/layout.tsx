@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { LINE_Seed_JP, Noto_Sans_SC } from "next/font/google";
 
 import { copy } from "@/i18n";
+import { ServiceQueueNotice } from "@/components/app/ServiceQueueNotice";
 import { LIST_WIDTH_SCRIPT } from "@/lib/panelSizes";
 
 // 中文正文用 Noto Sans SC，她的日语原文用 LINE Seed JP（经 <Ja> 取用）。
@@ -30,7 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: LIST_WIDTH_SCRIPT }} />
       </head>
-      <body>{children}</body>
+      <body>{children}<ServiceQueueNotice /></body>
     </html>
   );
 }

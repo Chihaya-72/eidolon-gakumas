@@ -346,6 +346,7 @@ async def test_deleting_a_user_keeps_the_numbers_but_not_who_it_was(
 async def test_the_dashboard_is_for_admins_only(
     make_client: ClientFactory, settings: Settings
 ):
+    make_client(FakeLLM(), "first-admin")
     client = make_client(FakeLLM())
 
     assert (await client.get("/api/admin/dashboard")).status_code == 404

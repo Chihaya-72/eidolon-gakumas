@@ -192,7 +192,7 @@ MAX_REASON_LENGTH = 300
 """How much of the service's own error message the admin is shown."""
 
 READ_ONLY: dict[str, str] = {
-    "admins": "改错了会把自己锁在门外，被攻破的后台也能借它把别人加成管理者，只能在服务器上改。",
+    "admins": "此处只显示环境变量指定的额外管理者。首位用户自动拥有持久管理权限；额外名单只能在服务器上改。",
     "secret_key": "后台保存的 key 用它加密，封禁名单也靠它，换了就都解不开、认不出，只能在服务器上改。",
     "oauth": "登录靠它，改错了谁都进不了后台去修。",
     "domain": "改了以后登录回调、Cookie 和 HTTPS 证书都要跟着变，需要重新部署。",
@@ -1818,8 +1818,7 @@ class LiveConfig:
         self._failures.pop(name, None)
 
     def _read_only(self) -> list[dict[str, Any]]:
-        """What is only shown, with why: never a key, only whether it is set; the admins,
-        `everyone` while everyone is one (`Settings.everyone_admin`)."""
+        """Read-only deployment settings, including only the additional environment admins."""
         s = self.settings
         turn = s.turn.urls if s.turn else []
         ice = [u for server in s.ice_servers for u in _urls(server["urls"])]
@@ -1827,8 +1826,7 @@ class LiveConfig:
             f"{s.embedding.provider} · {s.embedding.model}" if s.embedding else None
         )
         values: dict[str, Any] = {
-            "admins": "everyone" if s.everyone_admin
-            else sorted(f"{p}:{subject}" for p, subject in s.admins),
+            "admins": sorted(f"{p}:{subject}" for p, subject in s.admins),
             "secret_key": s.secret_key is not None,
             "oauth": [name for name, o in (("github", s.github), ("google", s.google)) if o],
             "domain": s.domain,

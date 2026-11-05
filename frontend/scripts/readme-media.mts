@@ -32,16 +32,11 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { pathToFileURL } from "node:url";
 import { parseArgs, promisify } from "node:util";
 
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
 
 
-// 落地页的时间线和页面同一个出处。Node 要带 .ts 扩展名才找得到它，tsc 又不许静态导入带扩展名，所以动态导入。
-type TimelineModule = typeof import("../src/app/(landing)/model/timeline");
-const timelineFile = pathToFileURL(path.resolve(import.meta.dirname, "../src/app/(landing)/model/timeline.ts")).href;
-const { holdAt, spanOf, timelineOf } = (await import(timelineFile)) as TimelineModule;
 const run = promisify(execFile);
 
 const frontend = path.resolve(import.meta.dirname, "..");
@@ -401,66 +396,37 @@ async function flipbook(
 
 // —— 落地页
 
-/** 等光层淡入（LightStage 给 .lp-root 加上 lp-gl-on）。 */
-async function glOn(page: Page): Promise<void> {
-  await page
-    .waitForFunction(() => document.querySelector(".lp-root")?.classList.contains("lp-gl-on"), null, { timeout: 20_000 })
-    .catch(() => undefined);
-}
-
-/** 运动版式里滚到时间线上第 `screens` 屏（和 scripts/landing-check.mjs 的同名函数一样换算）。 */
-async function toScreens(page: Page, screens: number, wait = 1600): Promise<void> {
-  const { sections } = timelineOf(await page.locator(".lp-seg").count());
-  await page.evaluate(
-    ({ screens, sections }) => {
-      const els = [...document.querySelectorAll<HTMLElement>("[data-lp-section]")];
-      const s = sections.find((s) => screens < s.from + s.screens) ?? sections.at(-1)!;
-      const el = els[s.index];
-      const top = el.getBoundingClientRect().top + window.scrollY;
-      const vh = window.innerHeight;
-      const into = screens - s.from;
-      let y;
-      if (s.pinned || el.offsetHeight <= vh) y = top + (into / s.screens) * el.offsetHeight;
-      else if (into < s.screens - 1) y = top + (into / (s.screens - 1)) * (el.offsetHeight - vh);
-      else y = top + el.offsetHeight - vh + (into - s.screens + 1) * vh;
-      window.scrollTo(0, y);
-    },
-    { screens, sections },
-  );
-  if (wait > 0) await page.waitForTimeout(wait);
-}
-
-/** 打开落地页的完整档，等光层淡入。 */
+/** 打开当前欢迎页，等首屏和字体就绪。 */
 async function openLanding(browser: Browser): Promise<{ context: BrowserContext; page: Page }> {
   const context = await browser.newContext(DESKTOP);
   const page = await context.newPage();
-  await page.goto(`${origin}/?tier=full`, { waitUntil: "load" });
-  await glOn(page);
+  await page.goto(`${origin}/`, { waitUntil: "load" });
+  await page.locator("#wl-title").waitFor();
+  await page.evaluate(() => document.fonts.ready);
   await settle(page, 1500);
   return { context, page };
 }
 
-/** README 顶上的横幅：第 0 幕的标题和白光，裁掉右上角的登录、左边的幕名轨和底下的声明。 */
+/** README 顶上的横幅：当前欢迎页的介绍页。 */
 async function landing(browser: Browser): Promise<void> {
   const { context, page } = await openLanding(browser);
   try {
-    await still(page, "landing", { x: 80, y: 110, width: 1360, height: 600 });
+    await still(page, "landing", { x: 0, y: 100, width: 1440, height: 700 });
   } finally {
     await context.close();
   }
 }
 
-/** 动图：从标题一路滚过分光、光谱的头两个组合。滚动中录屏会拍到没画完的图块，所以一步一拍（要十几分钟）。 */
+/** 动图：依次展示当前欢迎页的各页，使用翻页容器而非旧落地页的时间线。 */
 async function landingTour(browser: Browser): Promise<void> {
   const { context, page } = await openLanding(browser);
   try {
-    const tl = timelineOf(await page.locator(".lp-seg").count());
-    const end = spanOf(tl, 2) ? holdAt(tl, 1) : (spanOf(tl, 1)?.to ?? 3);
     const steps = 140;
     await flipbook(page, "landing-tour", steps + 1, async (i) => {
-      // 两头慢、中间快地滚，停在第二个组合上。
-      const x = i / steps;
-      await toScreens(page, x * x * (3 - 2 * x) * end, 120);
+      await page.locator(".wl-pager").evaluate((pager, progress) => {
+        pager.scrollTop = progress * (pager.scrollHeight - pager.clientHeight);
+      }, i / steps);
+      await page.waitForTimeout(120);
     });
   } finally {
     await context.close();

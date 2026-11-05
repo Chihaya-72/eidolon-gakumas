@@ -1004,12 +1004,14 @@ class Calls:
         """What the browser needs before calling: ICE servers, with TURN credentials of its
         own; how long a call may last, in seconds (None for no limit); and whether a call
         bringing the user's own keys for `own` would be exempt from the limit. Raises
-        CoolingDown, for a call with `character_id` if given, StillPlacing and CallsBusy, as
-        `start` would, and CallsUnavailable, as `OwnKeys.call_exempt` does, before anything
-        is spent on a call that could not start."""
+        CoolingDown, for a call with `character_id` if given, and StillPlacing. Fully
+        self-funded calls check capacity here; shared calls wait in the service queue
+        and check capacity once admitted. CallsUnavailable is as `OwnKeys.call_exempt`."""
         if character_id is not None:
             await self._admissions.refuse_while_cooling(user_id, character_id)
-        self._refuse_unless_room(user_id)
+        self._refuse_unless_room(
+            user_id, capacity=not self._admissions.queue_enabled or {"llm", "stt", "tts"} <= own
+        )
         exempt = self._own_keys.call_exempt(own)
         servers: list[IceServer] = list(self._settings.ice_servers)
         if self._settings.turn is not None:
@@ -1033,14 +1035,22 @@ class Calls:
         """Answer a new call into the user's `conversation` with `character`, bringing
         `brought`, let through by `Admissions.call`, whose exceptions it raises; once it
         is, the user's call under way, if any, is hung up as left. Raises StillPlacing while
-        the user's last call is still being placed, and CallsBusy while there are as many
-        as there may be at once, not counting the user's own, before anything is asked or
-        recorded. Whatever fails before the call is served, it never connected; once it is
+        the user's last call is still being placed. Shared calls wait for a service slot;
+        capacity counts admitted placements and live calls, never queue waiters. Fully
+        self-funded calls check capacity immediately. Whatever fails before the call is served,
+        it never connected; once it is
         served, it is settled as it ends, letting go of the keys it brought."""
-        self._refuse_unless_room(user_id)
+        self._refuse_unless_room(
+            user_id, capacity=(
+                not self._admissions.queue_enabled or {"llm", "stt", "tts"} <= brought.services
+            ),
+        )
         placing = _Placing(user_id)
         self._placing.add(placing)
         try:
+            # A shared-key call owns the queue slot for its whole lifetime. Replacing
+            # one's own call must release that slot before waiting for the next one.
+            await self.hang_up(user_id, "left")
             return await self._admit_and_start(
                 user_id, conversation, character, options, offer, brought, placing
             )
@@ -1063,9 +1073,19 @@ class Calls:
                 conversation.id, user_id, character.id, connected_at, duration_s
             )
 
+        def available() -> None:
+            # Calls still waiting in the service queue consume no call capacity.
+            # Mark this placement before another admission can pass its own check.
+            self._refuse_unless_room(user_id, placing)
+            placing.admitted = True
+
         # Cancelled meanwhile, what is let in never set up, so is settled.
         admission = await self._admissions.admitted(
-            self._admissions.call(user_id, character.id, brought),
+            self._admissions.call(
+                user_id, character.id, brought,
+                available=available,
+                target=conversation.id,
+            ),
             lambda let_in: CallOutcome(let_in, self._limits(), self._clock, keep).set_up_failed(),
         )
         outcome = CallOutcome(admission, self._limits(), self._clock, keep)
@@ -1161,14 +1181,20 @@ class Calls:
         """How many calls there are now, connected or still connecting."""
         return len(self._live)
 
-    def _refuse_unless_room(self, user_id: str) -> None:
-        """Raise StillPlacing if the user's last call is still being placed, CallsBusy if
-        there are as many calls under way as there may be at once, but for the user's own,
-        which a new one replaces."""
-        placing_users = [placing.user_id for placing in list(self._placing)]
+    def _refuse_unless_room(
+        self, user_id: str, current: "_Placing | None" = None, *, capacity: bool = True
+    ) -> None:
+        """Reject duplicate placement, and optionally check capacity, excluding queue
+        waiters and the user's own live call, which a new call replaces."""
+        placing_users = [placing.user_id for placing in list(self._placing) if placing is not current]
         if user_id in placing_users:
             raise StillPlacing()
-        under_way = placing_users + [
+        if not capacity:
+            return
+        under_way = [
+            placing.user_id for placing in self._placing
+            if placing is not current and placing.admitted
+        ] + [
             live.user_id for live in list(self._live) if not live.over and live.user_id != user_id
         ]
         most = self._usage_limits().concurrent_calls
@@ -1248,6 +1274,7 @@ class _Placing:
 
     def __init__(self, user_id: str) -> None:
         self.user_id = user_id
+        self.admitted = False
 
 
 async def _no_new_connection(connection: SmallWebRTCConnection) -> None:

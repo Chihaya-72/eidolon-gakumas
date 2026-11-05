@@ -515,7 +515,7 @@ class Catalog:
         self._fetching: asyncio.Task[None] | None = None
         self._closed = False
         self._http = httpx.AsyncClient(
-            transport=transport, timeout=60, headers={"User-Agent": "eidolon-sc"},
+            transport=transport, timeout=60, headers={"User-Agent": "eidolon-gakumas"},
             follow_redirects=True,
         )
 

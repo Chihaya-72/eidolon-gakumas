@@ -172,6 +172,8 @@ class World:
     releases: tuple[Release, ...] = ()
     songs: tuple[Song, ...] = ()
     lives: tuple[Live, ...] = ()
+    setting: str | None = None
+    """An authored setting for a character pack, instead of the SC-specific summary."""
 
     def idol(self, name: str) -> Idol | None:
         return next((idol for idol in self.idols if idol.name == name), None)
@@ -308,6 +310,8 @@ class World:
         """The world setting as a turn on `today` with the character called `name` carries
         it: for an idol, her songs and her lives included, those on releases and days after
         `today` told as still to come; for one of the staff, neither. No CV is in it."""
+        if self.setting is not None:
+            return self.setting
         if self.is_staff(name):
             return self._setting_prompt(staff=True)
         return "\n\n".join(
@@ -387,6 +391,7 @@ class World:
 
     def to_json(self) -> dict:
         return {
+            **({"setting": self.setting} if self.setting is not None else {}),
             "as_of": self.as_of.isoformat(),
             "office": {"name": self.office, "staff": [asdict(s) for s in self.staff]},
             "units": [asdict(u) for u in self.units],
@@ -414,6 +419,7 @@ class World:
     @classmethod
     def from_json(cls, data: dict) -> "World":
         return cls(
+            setting=_setting(data),
             as_of=date.fromisoformat(data["as_of"]),
             office=data["office"]["name"],
             staff=tuple(
@@ -472,6 +478,13 @@ def _day(day: date) -> str:
 def world_path(characters_path: Path) -> Path:
     """Where the data file is: beside the character configuration."""
     return characters_path.parent / WORLD_FILE
+
+
+def _setting(data: dict) -> str | None:
+    setting = data.get("setting")
+    if setting is not None and (not isinstance(setting, str) or not setting.strip()):
+        raise ValueError("setting 应为非空的世界设定文字")
+    return setting
 
 
 def load_world(path: Path) -> World | None:

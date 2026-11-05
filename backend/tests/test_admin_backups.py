@@ -75,6 +75,7 @@ async def begun_elsewhere(settings: Settings, clock: FakeClock, source: Source =
 async def test_only_admins_see_the_backups_or_begin_one(
     make_client: ClientFactory, set_up: pytest.MonkeyPatch, storage: FakeBucket
 ):
+    make_client(FakeLLM(), "first-admin")
     producer = make_client(FakeLLM(), backup_transport=httpx.MockTransport(storage.handle))
     signed_out = make_client(FakeLLM(), user=None)
 

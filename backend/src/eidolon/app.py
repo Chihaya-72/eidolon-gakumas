@@ -59,6 +59,8 @@ from eidolon.producer import (
 from eidolon.account_api import OwnKeysInput, add_account_routes
 from eidolon.cities_api import add_city_routes
 from eidolon.admin_api import add_admin_routes
+from eidolon.access_api import add_access_routes
+from eidolon.queue_api import add_queue_routes
 from eidolon.admin_backup_api import add_admin_backup_routes
 from eidolon.dashboard import add_dashboard_routes
 from eidolon.data_package_api import add_data_package_routes
@@ -341,9 +343,11 @@ def create_app(backend: Backend) -> FastAPI:
         yield
         await backend.aclose()
 
-    app = FastAPI(title="Eidolon-SC", lifespan=lifespan)
+    app = FastAPI(title="Eidolon-Gakumas", lifespan=lifespan)
     app.state.backend = backend
     app.middleware("http")(session_middleware(backend.settings))
+    add_access_routes(app, backend)
+    add_queue_routes(app, backend)
 
     @app.exception_handler(OverLimit)
     async def over_limit(_: Request, e: OverLimit) -> JSONResponse:
@@ -541,7 +545,7 @@ def create_app(backend: Backend) -> FastAPI:
                 "avatar_url": f"/api/characters/{c.id}/avatar" if c.avatar else None,
                 "scsp_avatar_url": f"/api/characters/{c.id}/scsp-avatar" if c.scsp_avatar else None,
                 "color": c.color,
-                "birthday": f"{c.birthday.month:02}-{c.birthday.day:02}",
+                "birthday": f"{c.birthday.month:02}-{c.birthday.day:02}" if c.birthday else None,
                 "background_url": f"/api/characters/{c.id}/background" if c.background else None,
                 "signature_url": signature_url(c),
                 "stand": _stand(c, backend.settings.stand_assets_url),

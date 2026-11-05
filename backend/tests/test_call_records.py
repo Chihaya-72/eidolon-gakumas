@@ -233,10 +233,13 @@ async def test_a_call_cancelled_as_it_is_let_in_never_connected_and_takes_none_o
     letting_in, may_go_on = asyncio.Event(), asyncio.Event()
     let_in = backend.admissions.call
 
-    async def call(*args: Any) -> Any:
+    async def call(*args: Any, **kwargs: Any) -> Any:
+        # Cancel after the durable admission, so its quota and activity must settle.
+        # Cancellation before queue admission is covered separately and takes no use.
+        admission = await let_in(*args, **kwargs)
         letting_in.set()
         await may_go_on.wait()
-        return await let_in(*args)
+        return admission
 
     monkeypatch.setattr(backend.admissions, "call", call)
 
@@ -261,8 +264,8 @@ async def test_a_call_whose_speech_synthesis_fails_before_any_turn_never_connect
     browser: Browser,
 ):
     clock = FakeClock()
-    client = make_client(FakeLLM(), clock=clock)
     admin = await admin_client(make_client, github, clock)
+    client = make_client(FakeLLM(), clock=clock)
     await browser.call(client, conversation_id=await start_conversation(client))
     await browser.connect()
 
@@ -341,8 +344,8 @@ async def test_a_banned_users_call_ends_for_the_ban(
 ):
     monkeypatch.setattr(eidolon.call, "USER_CHECK_INTERVAL", 0.05)
     clock = FakeClock()
-    client = make_client(FakeLLM(), clock=clock)
     admin = await admin_client(make_client, github, clock)
+    client = make_client(FakeLLM(), clock=clock)
     await browser.call(client, conversation_id=await start_conversation(client))
     await browser.connect()
 

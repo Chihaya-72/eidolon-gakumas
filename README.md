@@ -1,6 +1,8 @@
 <div align="center">
 
-<img src="docs/images/landing.webp" alt="Eidolon-SC：和 283 事务所的偶像说说话" width="100%">
+当前本地版本默认使用《学园偶像大师》24 位角色的人设。配置与音色说明见 [角色包说明](characters/gakumas/README.md)。
+
+<img src="docs/images/landing.webp" alt="Eidolon-Gakumas：和 283 事务所的偶像说说话" width="100%">
 
 **和《偶像大师 闪耀色彩》的偶像实时对话的 AI 分身**
 
@@ -8,7 +10,7 @@
 
 **简体中文** · [English](README.en.md) · [日本語](README.ja.md)
 
-[![CI](https://img.shields.io/github/actions/workflow/status/Sallyn0225/eidolon-sc/ci.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=CI)](https://github.com/Sallyn0225/eidolon-sc/actions/workflows/ci.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/Chihaya-72/eidolon-gakumas/ci.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=CI)](https://github.com/Chihaya-72/eidolon-gakumas/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](backend/pyproject.toml)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Pipecat](https://img.shields.io/badge/Pipecat-WebRTC-6E56CF?style=flat-square)](https://github.com/pipecat-ai/pipecat)
@@ -23,7 +25,7 @@
 
 ---
 
-Eidolon-SC 让你以 **283 事务所制作人**的身份，和原作中的偶像打字聊天或者直接打电话。她用日语原声回答，附上中文字幕；能回忆自己在原作里经历过的剧情；还会记住你说过的事，并在偶像之间「传开」。
+Eidolon-Gakumas 让你以 **283 事务所制作人**的身份，和原作中的偶像打字聊天或者直接打电话。她用日语原声回答，附上中文字幕；能回忆自己在原作里经历过的剧情；还会记住你说过的事，并在偶像之间「传开」。
 
 原作八个组合的 **28 位偶像**和事务员七草はづき都已经配好，可以直接对话。部署到公网后，任何人都能用 Google 或 GitHub 登录使用。
 
@@ -149,7 +151,7 @@ Eidolon-SC 让你以 **283 事务所制作人**的身份，和原作中的偶像
 不熟悉 Docker 和各种 API key 也没关系：把下面这段话发给你用的编程 Agent（Claude Code、Codex、Cursor 等都行），它会照仓库里的[部署说明](docs/agents/deploying.md)一步步带你做，碰到报错也会帮你查。
 
 ```text
-帮我部署 Eidolon-SC（https://github.com/Sallyn0225/eidolon-sc）。先把仓库克隆下来，
+帮我部署 Eidolon-Gakumas（https://github.com/Chihaya-72/eidolon-gakumas）。先把仓库克隆下来，
 再照仓库里 docs/agents/deploying.md 带我一步步做。要我注册账号、申请 key 的地方告诉我怎么做；
 key 我自己填进 .env，不贴给你。
 ```
@@ -162,7 +164,7 @@ key 我自己填进 .env，不贴给你。
 需要 Docker 与 Docker Compose，以及一个支持流式输出和工具调用的对话模型。不想装 Docker（比如在 Windows 上），也可以用 uv 和 Node.js 直接跑前后端，见下面的「开发」和[部署说明](docs/agents/deploying.md)的「三种跑法」。
 
 ```sh
-git clone https://github.com/Sallyn0225/eidolon-sc.git && cd eidolon-sc
+git clone https://github.com/Chihaya-72/eidolon-gakumas.git && cd eidolon-gakumas
 cp .env.example .env    # 填写 CHAT_LLM_BASE_URL、CHAT_LLM_API_KEY、CHAT_LLM_MODEL，再加一行 EIDOLON_DEV_LOGIN=1
 docker compose up --build
 ```
@@ -258,7 +260,7 @@ docker compose -f docker-compose.prod.yml up -d
 cd backend
 uv sync
 uv run pytest && uv run pyright && uv run ruff check
-uv run --env-file=../.env eidolon serve   # 启动在 :8000，读取 ../characters/characters.toml
+uv run --env-file=../.env eidolon serve   # 启动在 :8000，读取 ../characters/gakumas/characters.toml
 ```
 
 **前端**（Next.js 16 + [shadcn/ui](https://ui.shadcn.com/) + Tailwind CSS v4，`frontend/`）：
@@ -278,7 +280,7 @@ npm run build && BACKEND_URL=http://localhost:8000 npm run start   # 启动在 :
 ## 📁 项目结构
 
 ```text
-eidolon-sc/
+eidolon-gakumas/
 ├── backend/          # Python 后端：FastAPI + Pipecat；对话引擎、通话、检索、记忆、同步与命令行（eidolon）
 │   ├── src/eidolon/
 │   ├── eval/         #   重排、判断模型和记忆的评测集（只含问题与标注，不含剧情原文）

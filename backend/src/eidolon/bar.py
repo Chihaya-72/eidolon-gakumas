@@ -125,6 +125,7 @@ from eidolon.own_keys import BroughtKeys, OwnKeyFailed, TurnKeys
 from eidolon.producer import ProducerProfile, producer_prompt
 from eidolon.randomness import Random
 from eidolon.schedule import Job
+from eidolon.service_queue import Lease, ServiceQueue
 from eidolon.store import read_profile
 from eidolon.world import World
 
@@ -276,17 +277,23 @@ class BarCall:
     left."""
 
     def __init__(
-        self, events: AsyncGenerator[BarEvent, None], stopped: Callable[[], None]
+        self, events: AsyncGenerator[BarEvent, None], stopped: Callable[[], None],
+        lease: Lease | None = None,
     ) -> None:
         self._events = events
         self._stopped = stopped
+        self._lease = lease
 
     def __aiter__(self) -> AsyncIterator[BarEvent]:
         return self._events
 
     async def aclose(self) -> None:
-        self._stopped()
-        await self._events.aclose()
+        try:
+            self._stopped()
+            await self._events.aclose()
+        finally:
+            if self._lease is not None:
+                await asyncio.shield(self._lease.release())
 
 Step = Literal["writing", "waiting", "failed"]
 """Where a visit is: her lines being written, waiting for a drink, or stopped before a call
@@ -373,6 +380,7 @@ class Bar:
         affinities: Affinities | None = None,
         gifts: Gifts | None = None,
         facts: BarFacts | None = None,
+        queue: ServiceQueue | None = None,
     ) -> None:
         """`is_on` tells whether the bar is open now (the live configuration's switch). Without
         `world`, she has no world setting; without `affinities` or `gifts`, no reward. `her_now`
@@ -393,6 +401,7 @@ class Bar:
         self._gifts = gifts
         self._her_now = her_now
         self._facts = facts
+        self._queue = queue
         self._visits: dict[str, _Visit] = {}
         """Each user's visit under way, by user."""
         self._settles: set[asyncio.Future[Any]] = set()
@@ -430,21 +439,29 @@ class Bar:
         admission = await admissions.admitted(
             admissions.visit(user_id, character.id, brought), lambda let_in: let_in.settle("left")
         )
+        visit: _Visit | None = None
         try:
+            if not self._is_on():
+                raise BarClosed()
             visit = await self._drawn(user_id, character, now, before, device_timezone, admission)
+            replaced = self._visits.get(user_id)
+            self._visits[user_id] = visit
+            if replaced is not None:
+                await self._cut_short(replaced)
+            return await self._called(
+                visit, opening_ask(visit.orders[0]), VisitBegan(visit.id, character.id),
+                admission.take_queue_lease(),
+            )
         except Exception:
+            if visit is not None:
+                self._end(visit)
             await asyncio.shield(self._settling(admission, "failed", given_back=True))
             raise
         except BaseException:  # the page gone as she was being drawn: left
-            self._settling(admission, "left")
+            if visit is not None:
+                self._end(visit)
+            self._settling(admission, "left", given_back=True)
             raise
-        replaced = self._visits.get(user_id)
-        self._visits[user_id] = visit
-        if replaced is not None:
-            await self._cut_short(replaced)
-        return self._called(
-            visit, opening_ask(visit.orders[0]), VisitBegan(visit.id, character.id)
-        )
 
     async def _drawn(
         self,
@@ -509,7 +526,7 @@ class Bar:
             ask = serving_ask(serving, enjoy, order)
         else:
             ask = farewell_ask(serving, enjoy, visit.servings, drunk=visit.drunk)
-        return self._called(visit, ask, BarLine("producer", enjoy))
+        return await self._called(visit, ask, BarLine("producer", enjoy))
 
     async def retry(self, user_id: str, visit_id: str) -> "BarCall":
         """The call the user's visit `visit_id` stopped before, failing, tried again, on the
@@ -520,7 +537,7 @@ class Bar:
             raise NotFailed()
         visit.touched = self._clock()
         visit.step = "writing"
-        return self._called(visit, visit.asking, None)
+        return await self._called(visit, visit.asking, None)
 
     async def leave(self, user_id: str, visit_id: str) -> None:
         """The user leaves their visit `visit_id`, which is over. Raises VisitGone unless it is
@@ -619,11 +636,29 @@ class Bar:
         if not kept.cancelled() and (error := kept.exception()) is not None:
             log.error("settling or writing down a visit failed", exc_info=error)
 
-    def _called(self, visit: _Visit, ask: str, first: BarEvent | None) -> "BarCall":
+    async def _called(
+        self, visit: _Visit, ask: str, first: BarEvent | None, lease: Lease | None = None
+    ) -> "BarCall":
         visit.asking = ask
-        visit.calls += 1
-        call = visit.calls
-        return BarCall(self._call(visit, ask, first, call), lambda: self._left_off(visit, call))
+        try:
+            if lease is None:
+                lease = (
+                    await self._queue.acquire(visit.user_id, "bar", bypass=visit.admission.own_llm)
+                    if self._queue is not None else Lease()
+                )
+            await self._under_way(visit.user_id, visit.id)
+            await lease.start()
+            visit.calls += 1
+            call = visit.calls
+            return BarCall(
+                self._call(visit, ask, first, call, lease),
+                lambda: self._left_off(visit, call), lease,
+            )
+        except BaseException:
+            visit.step = "failed"
+            if lease is not None:
+                await asyncio.shield(lease.release())
+            raise
 
     def _reason(self, character: Character, job: Job | None, recent: frozenset[str]) -> Reason:
         """Her reason for coming: half the time `job`, if any; else one of the list's for her,
@@ -646,7 +681,8 @@ class Bar:
         return fresh[self._random(len(fresh))]
 
     async def _call(
-        self, visit: _Visit, ask: str, first: BarEvent | None, call: int
+        self, visit: _Visit, ask: str, first: BarEvent | None, call: int,
+        lease: Lease,
     ) -> AsyncGenerator[BarEvent, None]:
         """A call of `visit`, its `call`th, asking for `ask`, sending `first` before it if any: its lines as
         they close, held back from the line she orders in on, if she is to order; then the
@@ -708,7 +744,10 @@ class Bar:
                 return
             yield VisitDone(rewarded)
         finally:
-            self._left_off(visit, call)
+            try:
+                self._left_off(visit, call)
+            finally:
+                await asyncio.shield(lease.release())
 
     async def _done(self, visit: _Visit) -> Rewarded | None:
         """The visit done: written down, rewarded if it is to be (`_write_down`), and settled

@@ -142,7 +142,7 @@ async def test_form_of_address_enters_the_prompt_as_a_way_of_calling_the_produce
     prompt = await system_prompt(client, llm)
 
     assert "「小林さん」" in prompt
-    assert "仍然是你的制作人" in prompt
+    assert "不改变人设中你与对方的关系" in prompt
 
 
 async def test_without_a_form_of_address_the_character_sheet_decides(

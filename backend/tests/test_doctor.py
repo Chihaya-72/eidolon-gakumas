@@ -154,7 +154,7 @@ def test_the_doctor_says_what_in_env_keeps_the_server_from_starting(
     assert "EIDOLON_PROXY_SERVICES" in capsys.readouterr().out
 
 
-def test_the_doctor_says_no_one_can_be_invited_without_admins_to_invite_them(
+def test_first_user_can_invite_without_environment_admins(
     env: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ):
     env.setenv("EIDOLON_REGISTRATION", "invite")
@@ -165,10 +165,10 @@ def test_the_doctor_says_no_one_can_be_invited_without_admins_to_invite_them(
     main(["doctor", "--json"])
     with_admins = json.loads(capsys.readouterr().out)["invite_without_admins"]
 
-    assert (without_admins, with_admins) == (True, False)
+    assert (without_admins, with_admins) == (False, False)
 
 
-def test_the_doctor_says_everyone_is_an_admin_with_dev_login_and_no_admins(
+def test_the_doctor_describes_first_user_administrator_in_development(
     env: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ):
     env.setenv("EIDOLON_REGISTRATION", "invite")
@@ -179,5 +179,5 @@ def test_the_doctor_says_everyone_is_an_admin_with_dev_login_and_no_admins(
     main(["doctor", "--json"])
     report = json.loads(capsys.readouterr().out)
 
-    assert "开发登录：所有人都能进后台" in said
+    assert "首位用户自动成为管理者" in said
     assert report["invite_without_admins"] is False

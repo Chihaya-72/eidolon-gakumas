@@ -54,6 +54,7 @@ def cards(database: Path, name: str) -> int | None:
 
 
 async def test_not_an_admin_finds_nothing_there(make_client: ClientFactory, settings: Settings):
+    make_client(FakeLLM(), "first-admin")
     user = make_client(FakeLLM())
 
     for res in [await user.get(GIFTS), await user.post(GRANT)]:

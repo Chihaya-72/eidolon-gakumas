@@ -1,5 +1,15 @@
 # 生产环境的 HTTPS 入口：Caddy 自动向 Let's Encrypt 申请并续期证书，HTTP 自动跳转到 HTTPS。
 # 浏览器只有在 HTTPS 下才允许使用麦克风。
+{
+	servers {
+		# 只信任 Cloudflare 官方回源网段；直连时忽略请求里的 IP 头，仍取连接地址。
+		# 核对日期：2026-11-05。CF 调整网段后需同步更新并重载 Caddy：
+		# https://www.cloudflare.com/ips-v4/ 和 https://www.cloudflare.com/ips-v6/
+		trusted_proxies static 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+		client_ip_headers CF-Connecting-IP
+		trusted_proxies_strict
+	}
+}
 
 {$EIDOLON_DOMAIN} {
 	# 导入数据包是一个最大 200 MiB 的请求体，后端自己会拒绝更大的、说清楚为什么；这里比它
@@ -16,5 +26,7 @@
 			header Content-Type application/json*
 		}
 	}
-	reverse_proxy 127.0.0.1:3000
+	reverse_proxy 127.0.0.1:3000 {
+		header_up X-Eidolon-Client-IP {client_ip}
+	}
 }

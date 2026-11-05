@@ -47,7 +47,8 @@ async def send_turn(
 
 
 async def leave_turn(
-    client: httpx.AsyncClient, conversation_id: str, text: str, *, after: str
+    client: httpx.AsyncClient, conversation_id: str, text: str, *, after: str,
+    own_keys: dict | None = None,
 ) -> list[dict]:
     """Send a text turn and leave, closing the page, as soon as an event of type `after`
     arrives; the events that came by then.
@@ -56,7 +57,8 @@ async def leave_turn(
     the app to the end first. So this drives the app as uvicorn does, on ASGI spec 2.3,
     where the streaming response listens for `http.disconnect` and cancels the stream."""
     request = client.build_request(
-        "POST", f"/api/conversations/{conversation_id}/turns", json={"text": text}
+        "POST", f"/api/conversations/{conversation_id}/turns",
+        json={"text": text} | ({"own_keys": own_keys} if own_keys else {}),
     )
     scope = {
         "type": "http",

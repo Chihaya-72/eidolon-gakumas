@@ -21,10 +21,12 @@ import eidolon.photos
 from eidolon.config import Settings
 from eidolon.photos import NOT_RECEIVED
 from tests.conftest import ClientFactory
-from tests.fakes import HANG, FakeImageService, FakeLLM, context_of
+from tests.fakes import HANG, FakeImageService, FakeLLM, FakeLLMService, context_of
 from tests.test_conversation_events import hang_up
 from tests.test_delete_account import DELETE, rows_mentioning
 from tests.test_live_config import recorded
+from tests.test_live_config_services import backend_of
+from tests.test_own_llm import LLM
 from tests.test_photos import (  # noqa: F401  (`settings`, with the deployer's image generation)
     REPLY,
     SELFIE,
@@ -37,6 +39,10 @@ from tests.test_photos import (  # noqa: F401  (`settings`, with the deployer's 
 from tests.test_text_turn import leave_turn, send_turn, start_conversation
 
 ASKED = "发张自拍给我看看"
+OWN_IMAGE = {
+    "api_format": "novelai", "base_url": "https://image.own.test",
+    "api_key": "own-image-key-1234", "model": "nai-diffusion-4-5-full",
+}
 
 
 def tagged(outfit: str) -> list[str]:
@@ -119,15 +125,18 @@ async def test_her_later_turns_carry_a_photo_not_sent_marked_failed_and_she_is_t
     assert NOT_RECEIVED not in context_of(first)
 
 
-async def test_a_photo_sent_or_still_being_generated_carries_no_mark(make_client: ClientFactory):
+async def test_a_photo_sent_or_still_being_generated_carries_no_mark(
+    make_client: ClientFactory, own_llm: FakeLLMService,
+):
     image = FakeImageService()
     image.gate = asyncio.Event()
     llm = FakeLLM(REPLY, [WORDS])
-    client = make_client(llm, clients=asking(), image_transport=image.transport())
+    own_llm.llm = llm
+    client = make_client(FakeLLM(), clients=asking(), image_transport=image.transport())
     conversation = await start_conversation(client)
 
-    await send_turn(client, conversation, ASKED)
-    await send_turn(client, conversation, "还没好吗")
+    await send_turn(client, conversation, ASKED, own_llm=LLM)
+    await send_turn(client, conversation, "还没好吗", own_llm=LLM)
 
     replies = [m.content for m in llm.prompts[1] if m.role == "assistant"]
     assert replies == [f"<photo>{SELFIE}</photo>{WORDS}"]
@@ -136,20 +145,21 @@ async def test_a_photo_sent_or_still_being_generated_carries_no_mark(make_client
 
 
 async def test_photos_wait_their_turn_one_at_a_time_first_come_first_served(
-    make_client: ClientFactory,
+    make_client: ClientFactory, own_llm: FakeLLMService,
 ):
     image = FakeImageService()
     image.gate = asyncio.Event()
     outfits = ["red dress", "school uniform", "hoodie"]
+    own_llm.llm = FakeLLM(*(tagged(o) for o in outfits))
     client = make_client(
-        FakeLLM(*(tagged(o) for o in outfits)), clients=asking(),
+        FakeLLM(), clients=asking(),
         image_transport=image.transport(),
     )
     conversation = await start_conversation(client)
 
     photos = []
     for _ in outfits:
-        [photo] = photo_events(await send_turn(client, conversation, ASKED))
+        [photo] = photo_events(await send_turn(client, conversation, ASKED, own_llm=LLM))
         photos.append(photo["id"])
     await asyncio.sleep(0.05)
     waiting = len(image.requests)
@@ -173,9 +183,9 @@ async def test_one_that_waits_out_its_time_limit_is_never_sent_nor_recorded_as_a
     )
     conversation = await start_conversation(client)
 
-    [first] = photo_events(await send_turn(client, conversation, ASKED))
+    [first] = photo_events(await send_turn(client, conversation, ASKED, own_keys={"image": OWN_IMAGE}))
     monkeypatch.setattr(eidolon.photos, "TIME_LIMIT", 0.2)
-    [waited] = photo_events(await send_turn(client, conversation, ASKED))
+    [waited] = photo_events(await send_turn(client, conversation, ASKED, own_keys={"image": OWN_IMAGE}))
     waited_out = await settled(client, waited["id"])
     image.gate.set()
     sent = await settled(client, first["id"])
@@ -201,12 +211,12 @@ async def test_one_whose_reply_is_never_recorded_is_not_kept(
     events = await leave_turn(client, conversation, ASKED, after="photo")
     [photo] = photo_events(events)
     image.gate.set()
-    await until(lambda: recorded(client, "image"))
-    await asyncio.sleep(0.05)
+    await until(lambda: not backend_of(client).photos._generating)
 
     assert await record_of(client, conversation) == []
     assert (await client.get(f"/api/photos/{photo['id']}")).status_code == 404
     assert rows_mentioning(settings.database_path, photo["id"]) == {}
+    assert image.requests == []  # canceled before its shared photo operation began
 
 
 @pytest.mark.parametrize("gone", ["past conversation deleted", "user deleted"])
@@ -219,6 +229,7 @@ async def test_one_whose_reply_is_gone_by_the_time_it_comes_out_is_not_kept(
     conversation = await start_conversation(client)
 
     [photo] = photo_events(await send_turn(client, conversation, ASKED))
+    await until(lambda: image.requests)  # delete while generation is already in flight
     if gone == "past conversation deleted":
         hang_up(settings.database_path, conversation)
         assert await start_conversation(client) != conversation

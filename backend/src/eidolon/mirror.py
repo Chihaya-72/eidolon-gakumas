@@ -43,7 +43,7 @@ ALBUM_IDOLS = range(1, 29)
 """The idols with an album: 28 of them, as of its last update."""
 DEFAULT_INTERVAL = 1.0
 """Seconds between requests."""
-_USER_AGENT = "eidolon-sc story and stand sync (weekly, one request a second)"
+_USER_AGENT = "eidolon-gakumas story and stand sync (weekly, one request a second)"
 
 
 class MirrorError(RuntimeError):

@@ -241,7 +241,7 @@ class Weathers:
     def __init__(self, clock: Clock, transport: httpx.AsyncBaseTransport | None = None) -> None:
         self._clock = clock
         self._http = httpx.AsyncClient(
-            transport=transport, timeout=10, headers={"User-Agent": "eidolon-sc"},
+            transport=transport, timeout=10, headers={"User-Agent": "eidolon-gakumas"},
             trust_env=False,
         )
         self._cell = TOKYO.cell

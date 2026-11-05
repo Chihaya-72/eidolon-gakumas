@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         主仓库不接 PR，玩法上主要做维护者自己想做的。想加别的玩法，请 fork 一份、改个名字，在自己的仓库里做，做好了用这个模板登记。
-        登记的仓库会收进 [社区玩法仓库](https://github.com/Sallyn0225/eidolon-sc/blob/main/docs/community-forks.md)。收录只是方便大家找到，不代表维护者审过或担保其中的代码。
+        登记的仓库会收进 [社区玩法仓库](https://github.com/Chihaya-72/eidolon-gakumas/blob/main/docs/community-forks.md)。收录只是方便大家找到，不代表维护者审过或担保其中的代码。
         地址变了、想更新简介或不想再被列出，在这个 issue 下留言就行，关闭后也能留言。
 
   - type: input
@@ -22,7 +22,7 @@ body:
     id: project-name
     attributes:
       label: 项目名
-      description: 列表里显示的名字，要和 eidolon-sc 区分开
+      description: 列表里显示的名字，要和 eidolon-gakumas 区分开
     validations:
       required: true
 
@@ -64,11 +64,11 @@ body:
     attributes:
       label: 确认
       options:
-        - label: 仓库已经改名，不叫 eidolon-sc（在仓库的 Settings → General 里改，旧地址会自动跳转）
+        - label: 仓库已经改名，不叫 eidolon-gakumas（在仓库的 Settings → General 里改，旧地址会自动跳转）
           required: true
         - label: 仓库是公开的，按 AGPL-3.0-or-later 提供了修改后的源码
           required: true
-        - label: 仓库里没有剧情数据、角色音色和立绘素材（[ADR-0003](https://github.com/Sallyn0225/eidolon-sc/blob/main/docs/adr/0003-corpus-and-voices-stay-private.md)）
+        - label: 仓库里没有剧情数据、角色音色和立绘素材（[ADR-0003](https://github.com/Chihaya-72/eidolon-gakumas/blob/main/docs/adr/0003-corpus-and-voices-stay-private.md)）
           required: true
-        - label: 我看过 [CONTRIBUTING.md](https://github.com/Sallyn0225/eidolon-sc/blob/main/CONTRIBUTING.md) 里 fork 前要注意的事，包括 Spine Runtimes 的许可证
+        - label: 我看过 [CONTRIBUTING.md](https://github.com/Chihaya-72/eidolon-gakumas/blob/main/CONTRIBUTING.md) 里 fork 前要注意的事，包括 Spine Runtimes 的许可证
           required: true

@@ -126,30 +126,65 @@ async def test_asked_she_sends_one_before_her_words_and_it_is_kept_with_her_repl
     assert (reply["ja"], reply["zh"]) == ("はい、どうぞ", "给，你看")
 
 
-async def test_a_photo_out_before_her_reply_is_recorded_is_kept_as_it_is(
+async def test_a_shared_photo_waits_until_its_parent_reply_releases_the_service_slot(
     make_client: ClientFactory, monkeypatch: pytest.MonkeyPatch
 ):
     image = FakeImageService()
-    photo_out = asyncio.Event()  # her words wait for it
+    photo_queued = asyncio.Event()
+    finish_reply = asyncio.Event()
+    client = make_client(
+        FakeLLM([REPLY[0], finish_reply, WORDS]), clients=asking(), image_transport=image.transport()
+    )
+    photos = backend_of(client).photos
+    generate = photos._generate
+
+    async def generate_when_its_turn_comes(*args: Any) -> None:
+        photo_queued.set()
+        await generate(*args)
+
+    monkeypatch.setattr(photos, "_generate", generate_when_its_turn_comes)
+    conversation = await start_conversation(client)
+
+    turn = asyncio.create_task(send_turn(client, conversation, "发张自拍给我看看"))
+    await asyncio.wait_for(photo_queued.wait(), timeout=2)
+    assert image.requests == []
+    finish_reply.set()
+    events = await asyncio.wait_for(turn, timeout=2)
+
+    [photo] = photo_events(events)
+    assert (await settled(client, photo["id"]))["status"] == "ready"
+
+
+async def test_an_own_image_can_finish_while_its_parent_shared_reply_is_still_running(
+    make_client: ClientFactory, monkeypatch: pytest.MonkeyPatch,
+):
+    image = FakeImageService()
+    photo_out = asyncio.Event()
     client = make_client(
         FakeLLM([REPLY[0], photo_out, WORDS]), clients=asking(), image_transport=image.transport()
     )
     photos = backend_of(client).photos
     generate = photos._generate
 
-    async def generate_then_say_it_is_out(*args: Any) -> None:
+    async def generate_then_continue(*args: Any) -> None:
         try:
             await generate(*args)
-        finally:  # failing, her words go on all the same, and the test fails at once
+        finally:
             photo_out.set()
 
-    monkeypatch.setattr(photos, "_generate", generate_then_say_it_is_out)
+    monkeypatch.setattr(photos, "_generate", generate_then_continue)
     conversation = await start_conversation(client)
-
-    events = await send_turn(client, conversation, "发张自拍给我看看")
-
+    own_image = {
+        "api_format": "novelai", "base_url": "https://image.own.test",
+        "api_key": "own-image-key-1234", "model": "nai-diffusion-4-5-full",
+    }
+    events = await asyncio.wait_for(send_turn(
+        client, conversation, "发张自拍给我看看", own_keys={"image": own_image}
+    ), timeout=3)
     [photo] = photo_events(events)
-    assert (await client.get(f"/api/photos/{photo['id']}")).json()["status"] == "ready"
+    assert (await settled(client, photo["id"]))["status"] == "ready"
+    user = (await client.get("/api/account")).json()["id"]
+    assert await backend_of(client).queue.counts() == {user: 1}  # only the parent text turn
 
 
 async def test_the_image_service_is_sent_her_tag_cleaned_within_fixed_prompts(

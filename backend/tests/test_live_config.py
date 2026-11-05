@@ -412,6 +412,7 @@ async def test_a_key_the_changed_secret_key_cannot_decrypt_falls_back_with_a_war
 async def test_no_one_but_admins_finds_the_configuration(
     make_client: ClientFactory, admins: Settings
 ):
+    make_client(FakeLLM(), user="first-admin", settings=admins)
     producer = make_client(FakeLLM(), settings=admins)
     nobody = make_client(FakeLLM(), user=None, settings=admins)
 

@@ -81,6 +81,7 @@ export function isAvailable(item: ConfigItem | UnavailableItem): item is ConfigI
 
 /** The page's tabs, in order. */
 export const CONFIG_TABS = [
+  "access",
   "models",
   "voice",
   "image",
@@ -100,6 +101,7 @@ export type ConfigTab = (typeof CONFIG_TABS)[number];
  * sponsoring, the invite links, the prices and the read-only items are not items, so their tabs
  * list none, or only the item beside them, and the page puts their cards in itself. */
 export const TAB_ITEMS: Record<ConfigTab, ItemName[]> = {
+  access: [],
   models: ["chat_llm", "memory_llm", "judge", "judge_thresholds", "rerank"],
   voice: ["tts", "stt"],
   image: ["image", "gpt_image"],

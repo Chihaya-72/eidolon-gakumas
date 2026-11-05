@@ -535,8 +535,7 @@ class Settings:
     train on, embeds users' memories (ADR-0005, revised)."""
     admins: frozenset[tuple[str, str]] = frozenset()
     """The identities, as (provider, subject), whose users are admins and may enter the
-    admin console (ADR-0013); without any, there is no admin console, unless everyone is
-    an admin (`everyone_admin`)."""
+    admin console in addition to the persisted first-user administrator."""
     contact: str | None = None
     """How to reach the deployer, told to banned users when they try to sign in, and to
     those turned away for want of an invite link; None tells them no one."""
@@ -564,15 +563,13 @@ class Settings:
 
     @property
     def everyone_admin(self) -> bool:
-        """Whether every user is an admin: with dev login, which lets anyone sign in as
-        anyone, so that no list keeps anyone out, and no admins listed (ADR-0013, revised
-        2026-10-29)."""
-        return self.dev_login and not self.admins
+        """Development login no longer grants administrator rights to every user."""
+        return False
 
     @property
     def admin_console(self) -> bool:
-        """Whether there is an admin console: with admins listed, or everyone one."""
-        return bool(self.admins) or self.everyone_admin
+        """The console is available to persisted or environment-listed administrators."""
+        return True
 
     @property
     def stt_key(self) -> SttKey | None:
@@ -689,7 +686,7 @@ def database_path_from_env() -> Path:
 
 
 def characters_path_from_env() -> Path:
-    return Path(os.environ.get("EIDOLON_CHARACTERS_PATH", "../characters/characters.toml"))
+    return Path(os.environ.get("EIDOLON_CHARACTERS_PATH", "../characters/gakumas/characters.toml"))
 
 
 def story_path_from_env() -> Path:

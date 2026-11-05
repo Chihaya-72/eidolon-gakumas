@@ -141,7 +141,7 @@ class QWeather:
         self._settings = settings
         self._clock = clock
         self._http = httpx.AsyncClient(
-            transport=transport, timeout=10, headers={"User-Agent": "eidolon-sc"},
+            transport=transport, timeout=10, headers={"User-Agent": "eidolon-gakumas"},
             trust_env=False,
         )
         self._token: tuple[QWeatherSettings, str, datetime] | None = None

@@ -1,6 +1,6 @@
 # Licensing
 
-Eidolon-SC is free software: you can redistribute it and/or modify it under the
+Eidolon-Gakumas is free software: you can redistribute it and/or modify it under the
 terms of the GNU Affero General Public License as published by the Free Software
 Foundation, either version 3 of the License, or (at your option) any later
 version. The full text of the license is in the [LICENSE](LICENSE) file.

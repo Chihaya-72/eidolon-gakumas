@@ -5,16 +5,16 @@ body:
   - type: markdown
     attributes:
       value: |
-        **想要新玩法？** 主仓库的玩法主要做维护者自己想做的，别人提的玩法需求基本不在这里做。请 fork 一份、改个名字，在自己的仓库里做出来，再用 [玩法仓库登记](https://github.com/Sallyn0225/eidolon-sc/issues/new?template=fork_showcase.yml) 模板登记，会收进 [社区玩法仓库](https://github.com/Sallyn0225/eidolon-sc/blob/main/docs/community-forks.md)。
+        **想要新玩法？** 主仓库的玩法主要做维护者自己想做的，别人提的玩法需求基本不在这里做。请 fork 一份、改个名字，在自己的仓库里做出来，再用 [玩法仓库登记](https://github.com/Chihaya-72/eidolon-gakumas/issues/new?template=fork_showcase.yml) 模板登记，会收进 [社区玩法仓库](https://github.com/Chihaya-72/eidolon-gakumas/blob/main/docs/community-forks.md)。
 
-        动手前会先在 `.scratch/<feature>/` 写 spec 和 ticket；涉及已有设计决策的，请先看看 [docs/adr/](https://github.com/Sallyn0225/eidolon-sc/tree/main/docs/adr)。
+        动手前会先在 `.scratch/<feature>/` 写 spec 和 ticket；涉及已有设计决策的，请先看看 [docs/adr/](https://github.com/Chihaya-72/eidolon-gakumas/tree/main/docs/adr)。
 
   - type: checkboxes
     id: searched
     attributes:
       label: 已有的 issue
       options:
-        - label: 我在[已有的 issue](https://github.com/Sallyn0225/eidolon-sc/issues?q=is%3Aissue)（含已关闭的）里搜过，没有一样的
+        - label: 我在[已有的 issue](https://github.com/Chihaya-72/eidolon-gakumas/issues?q=is%3Aissue)（含已关闭的）里搜过，没有一样的
           required: true
 
   - type: textarea

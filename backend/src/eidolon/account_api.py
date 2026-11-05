@@ -404,7 +404,7 @@ def add_account_routes(app: FastAPI, backend: Backend) -> None:
                 {"provider": m.provider, "display_name": m.display_name, "email": m.email}
                 for m in methods
             ],
-            "is_admin": signs_in_as_admin(methods, settings),
+            "is_admin": bool(user.is_admin) or signs_in_as_admin(methods, settings),
             "exempting_keys": [s for s in SERVICES if s in backend.config.exempting_keys],
             "reach_outs": reach_outs,
             "cycles": cycles,

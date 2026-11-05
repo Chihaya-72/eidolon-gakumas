@@ -155,11 +155,11 @@ class Character:
     avatar: Path | None
     color: str
     """Her image colour, the official one from the original, as lower-case `#rrggbb`."""
-    birthday: Birthday
-    """Her birthday in the original; February 29 falls on February 28 in a year without it,
+    birthday: Birthday | None
+    """Her birthday in the original, or None if unpublished; February 29 falls on February 28 in a year without it,
     as the producer's does (`producer.is_birthday`)."""
-    age: int
-    """Her age in the original, as her character facts tell it; whether she is under 18 is
+    age: int | None
+    """Her age in the original, or None if unpublished; whether she is under 18 is
     what her cycle goes by (`cycles`), and nothing else."""
     background: Path | None = None
     """The picture behind her call screen; None shows a gradient of her image colour."""
@@ -213,6 +213,8 @@ class Character:
     """Her character tag as Danbooru writes it, e.g. `sakuragi mano`, for her photos."""
     photo_appearance: str | None = None
     """Her looks as tags, e.g. `brown hair, medium hair, brown eyes`, for her photos."""
+    cycles_enabled: bool = True
+    """Whether this character participates in the optional cycle mechanic."""
 
     @property
     def photographed(self) -> bool:
@@ -271,7 +273,9 @@ def _parse_character(
         )
 
     birthday = _BIRTHDAY.fullmatch(entry["birthday"])
-    if not (birthday and is_day_of_the_year(int(birthday[1]), int(birthday[2]))):
+    if entry["birthday"] != "unknown" and not (
+        birthday and is_day_of_the_year(int(birthday[1]), int(birthday[2]))
+    ):
         raise CharacterConfigError(
             f"角色 {label} 的 birthday 应为 MM-DD 格式、一年中有的一天（例如 \"04-25\"），"
             f"现在是 {entry['birthday']!r}"
@@ -279,7 +283,7 @@ def _parse_character(
 
     age = entry.get("age")
     # bool is an int in Python, but `age = true` is a mistake all the same.
-    if type(age) is not int or age <= 0:
+    if age != "unknown" and (type(age) is not int or age <= 0):
         raise CharacterConfigError(
             f"角色 {label} 的 age 应为她在原作里的年龄（正整数，和角色资料一致），现在是 {age!r}"
         )
@@ -341,6 +345,10 @@ def _parse_character(
             f"（enzaId 是十位数字），现在是 {default_outfit!r}"
         )
 
+    cycles_enabled = entry.get("cycles_enabled", True)
+    if type(cycles_enabled) is not bool:
+        raise CharacterConfigError(f"角色 {label} 的 cycles_enabled 应为 true 或 false")
+
     return Character(
         id=entry["id"],
         name=entry["name"],
@@ -349,8 +357,8 @@ def _parse_character(
         sheet=sheet,
         avatar=avatar,
         color=entry["color"].lower(),
-        birthday=Birthday(int(birthday[1]), int(birthday[2])),
-        age=age,
+        birthday=Birthday(int(birthday[1]), int(birthday[2])) if birthday else None,
+        age=None if age == "unknown" else age,
         background=background,
         scsp_avatar=scsp_avatar,
         signature=signature,
@@ -374,6 +382,7 @@ def _parse_character(
         bar_tolerance=_bar_name(entry, "bar_tolerance", label),
         photo_tag=_other_name(entry, "photo_tag", label),
         photo_appearance=_other_name(entry, "photo_appearance", label),
+        cycles_enabled=cycles_enabled,
     )
 
 
