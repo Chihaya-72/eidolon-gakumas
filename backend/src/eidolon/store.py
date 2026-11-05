@@ -56,6 +56,10 @@ CREATE TABLE IF NOT EXISTS admin_bootstrap (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     claimed INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS guest_browsers (
+    token_hash TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE
+);
 -- Only a hash of each session's token is kept; the times are epoch seconds.
 CREATE TABLE IF NOT EXISTS sessions (
     token_hash TEXT PRIMARY KEY,
@@ -208,6 +212,7 @@ class User:
     """Why they were banned, as the admin who banned them wrote; only admins see it."""
     is_admin: bool = False
     """A persisted administrator, including the deployment's first registered user."""
+    is_guest: bool = False
 
 
 @dataclass(frozen=True)
@@ -574,6 +579,10 @@ class Store:
     async def list_users(self) -> list[User]:
         return await self._db.read(_users)
 
+    async def guest_user(self, browser_token: str | None) -> tuple[User, str]:
+        """Resume this browser's guest, or create one with a server-generated secret."""
+        return await self._db.write(_guest_user, browser_token)
+
     async def get_user(self, user_id: str) -> User:
         user = await self._db.read(_user, user_id)
         if user is None:
@@ -876,7 +885,7 @@ class Store:
         await self._db.write(_reach_out_recorded_as, reach_out_id, record_id)
 
 
-_USER_COLUMNS = "id, name, created_at, consented_at, banned_at, ban_note, is_admin"
+_USER_COLUMNS = "id, name, created_at, consented_at, banned_at, ban_note, is_admin, is_guest"
 _MESSAGE_COLUMNS = (
     "m.id AS id, role, text, ja, zh, segments, m.created_at AS created_at, affinity"
 )
@@ -898,7 +907,7 @@ def _open(db: sqlite3.Connection) -> None:
         db.execute("ALTER TABLE users ADD COLUMN name TEXT")
         db.execute("UPDATE users SET name = id")
     _add_missing_columns(db, "users", ("consented_at", "banned_at", "ban_note"), "TEXT")
-    _add_missing_columns(db, "users", ("is_admin",), "INTEGER NOT NULL DEFAULT 0")
+    _add_missing_columns(db, "users", ("is_admin", "is_guest"), "INTEGER NOT NULL DEFAULT 0")
     db.execute("INSERT OR IGNORE INTO admin_bootstrap (id, claimed) VALUES (1, 0)")
     _bootstrap_admin(db)
     _add_missing_columns(db, "producer_profiles", ("birthday_month", "birthday_day"), "INTEGER")
@@ -940,8 +949,8 @@ def _add_missing_columns(
 
 def _insert_user(db: sqlite3.Connection, user: User) -> None:
     db.execute(
-        "INSERT INTO users (id, name, created_at) VALUES (?, ?, ?)",
-        (user.id, user.name, user.created_at),
+        "INSERT INTO users (id, name, created_at, is_guest) VALUES (?, ?, ?, ?)",
+        (user.id, user.name, user.created_at, int(user.is_guest)),
     )
     _bootstrap_admin(db)
 
@@ -950,10 +959,24 @@ def _bootstrap_admin(db: sqlite3.Connection) -> None:
     """Called inside schema preparation or the registration transaction, never per login."""
     if db.execute("SELECT claimed FROM admin_bootstrap WHERE id = 1").fetchone()[0]:
         return
-    first = db.execute("SELECT id FROM users ORDER BY created_at, rowid LIMIT 1").fetchone()
+    first = db.execute("SELECT id FROM users WHERE is_guest = 0 ORDER BY created_at, rowid LIMIT 1").fetchone()
     if first is not None:
         db.execute("UPDATE users SET is_admin = 1 WHERE id = ?", (first[0],))
         db.execute("UPDATE admin_bootstrap SET claimed = 1 WHERE id = 1")
+
+
+def _guest_user(db: sqlite3.Connection, token: str | None) -> tuple[User, str]:
+    if token:
+        row = db.execute("SELECT user_id FROM guest_browsers WHERE token_hash = ?",
+                         (hashlib.sha256(token.encode()).hexdigest(),)).fetchone()
+        if row is not None and (user := _user(db, row[0])) is not None:
+            return user, token
+    token = secrets.token_urlsafe(32)
+    user = User(uuid.uuid4().hex, "游客", _now(), is_guest=True)
+    _insert_user(db, user)
+    db.execute("INSERT INTO guest_browsers (token_hash, user_id) VALUES (?, ?)",
+               (hashlib.sha256(token.encode()).hexdigest(), user.id))
+    return user, token
 
 
 def _users(db: sqlite3.Connection) -> list[User]:

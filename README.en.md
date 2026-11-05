@@ -144,6 +144,8 @@ All **28 idols** from the game's eight units, plus the office clerk Nanakusa Haz
 
 ## 🚀 Quick start
 
+You can start without service API keys, then configure shared APIs in the first administrator’s **管理员设置 → 公用 API**. Personal API settings are unchanged. Set `EIDOLON_SECRET_KEY` to encrypt saved credentials, and configure the proxy first if the backend’s egress IP must be protected. See the [configuration guide](docs/configuration.en.md#public-apis-and-first-startup).
+
 You need Docker with Docker Compose, and a chat model that supports streaming and tool calling.
 
 ```sh

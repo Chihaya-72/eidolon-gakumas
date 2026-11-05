@@ -373,6 +373,10 @@ class LLMSettings:
     extra_body: dict[str, Any] | None = None
     """Merged into every request last (see `checked_extra_body`)."""
 
+    @property
+    def configured(self) -> bool:
+        return all(v.strip() for v in (self.base_url, self.api_key, self.model))
+
     @classmethod
     def chat_from_env(cls) -> "LLMSettings":
         return cls._from_env("CHAT")
@@ -387,12 +391,6 @@ class LLMSettings:
         def value(name: str) -> str | None:
             names = [f"{slot}_LLM_{name}"] + ([f"{fallback}_LLM_{name}"] if fallback else [])
             return next((v for n in names if (v := os.environ.get(n))), None)
-
-        def required(name: str) -> str:
-            if found := value(name):
-                return found
-            alternative = f"（或 {fallback}_LLM_{name}）" if fallback else ""
-            raise RuntimeError(f"环境变量 {slot}_LLM_{name}{alternative}未设置")
 
         protocol = value("PROTOCOL") or "chat-completions"
         if protocol not in LLM_PROTOCOLS:
@@ -416,9 +414,9 @@ class LLMSettings:
             except ValueError as e:
                 raise RuntimeError(f"环境变量 {slot}_LLM_EXTRA_BODY 有误：{e}") from None
         return cls(
-            base_url=required("BASE_URL"),
-            api_key=required("API_KEY"),
-            model=required("MODEL"),
+            base_url=value("BASE_URL") or "",
+            api_key=value("API_KEY") or "",
+            model=value("MODEL") or "",
             protocol=protocol,  # pyright: ignore[reportArgumentType]  # checked above
             max_tokens=int(max_tokens) if max_tokens else None,
             reasoning_effort=effort,
@@ -522,6 +520,8 @@ class Settings:
     """The public deployment's domain (behind Caddy); None in development."""
     dev_login: bool = False
     """Lets anyone sign in as any user by name, for development and tests only."""
+    guest_login: bool = False
+    """Offers browser-specific guest accounts without administrator access."""
     github: "OAuthSettings | None" = None
     """Signing in with GitHub; not offered unless configured."""
     google: "OAuthSettings | None" = None
@@ -631,6 +631,7 @@ class Settings:
             service_status=service_status_from_env(),
             domain=os.environ.get("EIDOLON_DOMAIN", "").strip() or None,
             dev_login=os.environ.get("EIDOLON_DEV_LOGIN", "").strip() == "1",
+            guest_login=os.environ.get("EIDOLON_GUEST_LOGIN", "").strip() == "1",
             github=OAuthSettings.from_env("GITHUB"),
             google=OAuthSettings.from_env("GOOGLE"),
             secret_key=os.environ.get("EIDOLON_SECRET_KEY") or None,

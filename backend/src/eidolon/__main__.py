@@ -212,14 +212,21 @@ def _serve() -> int:
     try:  # missing settings, an unusable DashScope key or Cloudflare token, a broken
         # character configuration
         settings = Settings.from_env()
-        settings = asyncio.run(_find_dashscope_region(settings))
-        asyncio.run(_check_judge(settings))
         backend = build(settings)
     except RuntimeError as e:
         print(e, file=sys.stderr)
         return 1
     try:  # an unfit chat model
-        asyncio.run(_check_chat_llm(settings))
+        # Load saved routing before probing any API: startup probes must not bypass
+        # the administrator's proxy and reveal the server's direct address.
+        routed = replace(settings, proxy=backend.config.proxy_settings)
+        routed = asyncio.run(_find_dashscope_region(routed))
+        backend.config.settings = replace(settings, dashscope_region=routed.dashscope_region)
+        asyncio.run(_check_judge(replace(routed, judge=backend.config.judge_settings)))
+        asyncio.run(_check_chat_llm(replace(
+            routed, chat_llm=backend.config.chat_model.text,
+            call_reasoning_effort=backend.config.chat_model.call_effort,
+        )))
     except RuntimeError as e:
         asyncio.run(backend.aclose())
         print(e, file=sys.stderr)
@@ -270,6 +277,8 @@ async def _check_chat_llm(settings: Settings) -> None:
     from eidolon.llm.providers import LLM_TIMEOUT, check_chat_models, open_chat_models
     from eidolon.proxy import open_client
 
+    if not settings.chat_llm.configured:
+        return
     proxy = settings.proxy.proxy_for("chat_llm")
     models = open_chat_models(settings.chat_model, open_client(proxy, LLM_TIMEOUT))
     try:

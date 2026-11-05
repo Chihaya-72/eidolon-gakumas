@@ -54,3 +54,7 @@ eidolon --db /path/to/eidolon.db access unban
 前端每两秒刷新位置并提供取消按钮，轮到语音后才打开麦克风。排队期间 60 秒未续约则过期；轮到后保留 15 秒，未开始便释放。重启后待执行票据失效，需要重新排队，未提交的文字会保留供重试。
 
 接口：`GET /api/access/status`、`POST /api/access/verify`；管理员 `GET/PUT /api/admin/access`、`GET /api/admin/access/bans`、`DELETE /api/admin/access/bans/{id}`。队列使用 `POST /api/queue`、`GET/DELETE /api/queue/{id}`，原操作携带 `X-Queue-Ticket`。语音票据同时绑定对话 ID；票据不包含密钥，实际业务请求重新核验密钥归属。直接调用原业务接口也会排队。
+
+## 游客登录
+
+设置 `EIDOLON_GUEST_LOGIN=1` 后，登录面板提供游客登录。每个浏览器拥有独立游客身份，退出后同一浏览器可再次进入；清除 Cookie 后不能找回原身份。游客仍需确认隐私政策、条款与年龄声明，不会参与首位管理员授权。访问密码同样保护游客登录接口。

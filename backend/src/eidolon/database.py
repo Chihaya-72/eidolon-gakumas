@@ -63,6 +63,7 @@ USER_DATA = [
     ("data_package_imports", "user_id = ?"),
     ("invited_users", "user_id = ?"),
     ("sessions", "user_id = ?"),
+    ("guest_browsers", "user_id = ?"),
     ("sign_in_methods", "user_id = ?"),
     ("users", "id = ?"),
 ]

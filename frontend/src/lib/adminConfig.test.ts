@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   changeOf,
   CONFIG_TABS,
+  PUBLIC_API_ITEMS,
+  protectPublicApis,
   CUSTOM_MODEL,
   formOf,
   exemptingKeysOf,
@@ -457,7 +459,7 @@ describe("GPT Image", () => {
   const form = formOf(gpt, effective);
 
   it("sits beside image generation, with a proxy switch of its own after it", () => {
-    expect(TAB_ITEMS.image).toEqual(["image", "gpt_image"]);
+    expect(PUBLIC_API_ITEMS.image).toEqual(["image", "gpt_image"]);
     expect(PROXIED_SERVICES.indexOf("gpt_image")).toBe(PROXIED_SERVICES.indexOf("image") + 1);
   });
 
@@ -541,14 +543,14 @@ describe("tabs", () => {
     expect([...placed].sort()).toEqual(Object.keys(ITEM_SPECS).sort());
   });
 
-  it("take a tab from the address and fall back to the models", () => {
-    expect(tabFromQuery("voice")).toBe("voice");
-    expect(tabFromQuery("network")).toBe("network");
-    for (const value of [undefined, "nope"]) expect(tabFromQuery(value), String(value)).toBe("models");
+  it("take a tab from the address and fall back to administrator settings", () => {
+    expect(tabFromQuery("voice")).toBe("access");
+    expect(tabFromQuery("network")).toBe("access");
+    for (const value of [undefined, "nope"]) expect(tabFromQuery(value), String(value)).toBe("access");
   });
 
   it("leave the default tab out of the address", () => {
-    expect(tabHref("/admin/config", "models")).toBe("/admin/config");
+    expect(tabHref("/admin/config", "access")).toBe("/admin/config");
     expect(tabHref("/admin/config", "read_only")).toBe("/admin/config?tab=read_only");
   });
 
@@ -558,6 +560,27 @@ describe("tabs", () => {
       stt: item("failed"),
       judge: { unavailable: "没有配置判断模型" },
     } as unknown as AdminConfig;
-    expect(CONFIG_TABS.filter((tab) => tabHasFailure(config, tab))).toEqual(["voice"]);
+    expect(CONFIG_TABS.filter((tab) => tabHasFailure(config, tab))).toEqual(["access"]);
+  });
+});
+
+
+describe("public API proxy selection", () => {
+  it("routes public services through the proxy without changing own API choices", () => {
+    expect(protectPublicApis({ url: "socks5://127.0.0.1:40000", own_llm: "false", own_tts: "true" })).toMatchObject({
+      enabled: "true", chat_llm: "true", memory_llm: "true", image: "true", judge: "true",
+      own_llm: "false", own_tts: "true", url: "socks5://127.0.0.1:40000",
+    });
+  });
+});
+
+
+it("shows a failed proxy route as retained rather than a direct fallback", () => {
+  const proxy = { ...item("failed"), retained_on_failure: true,
+    env: { enabled: false, url: null }, effective: { enabled: true, url: "socks5://127.0.0.1:40000" },
+    override: { enabled: true, url: "socks5://127.0.0.1:40000" },
+  };
+  expect(rows(proxy, ITEM_SPECS.proxy).find((r) => r.field === "url")).toMatchObject({
+    inEffect: true, effective: "socks5://127.0.0.1:40000",
   });
 });

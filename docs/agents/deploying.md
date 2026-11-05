@@ -55,7 +55,7 @@ cd eidolon-gakumas
 cp .env.example .env        # PowerShell：Copy-Item .env.example .env
 ```
 
-让用户在 `.env` 里填好对话模型的三项：`CHAT_LLM_BASE_URL`、`CHAT_LLM_API_KEY`、`CHAT_LLM_MODEL`（选哪家见「服务一览」，怎么申请和填见「申请和填写 key」）。另外加一行 `EIDOLON_DEV_LOGIN=1`，本机体验不用配 GitHub 或 Google 登录。
+可以不填任何服务 API Key，先启动网站和后台。建议生成并填写 `EIDOLON_SECRET_KEY`，用于后台加密保存密钥；首次注册的用户是管理员，之后从「后台配置 → 管理员设置 → 公用 API」配置公用模型。个人自用 API 仍在个人设置里。需要保护出口 IP 时，先配置后台代理，再填写和测试 API。若用户选择继续使用 `.env`，仍支持 `CHAT_LLM_BASE_URL`、`CHAT_LLM_API_KEY`、`CHAT_LLM_MODEL`。本机体验另加 `EIDOLON_DEV_LOGIN=1`，不用配 GitHub 或 Google 登录。
 
 **在中国大陆**：第一次下载依赖、构建前端时要连 GitHub、PyPI、npm 和 Google Fonts（前端构建时要从 Google Fonts 下载字体，连不上就构建失败）。用户有代理软件时，在接下来运行命令的那个终端里先设上代理（`HTTPS_PROXY` 的写法见「网络和代理」），依赖装好、前端构建完之后就不需要了。Docker 跑的，还要在 Docker Desktop 的 Settings → Resources → Proxies 里填代理（Linux 上配 docker 守护进程的代理），构建时拉镜像、装依赖、下载字体都走它。
 
@@ -86,9 +86,9 @@ BACKEND_URL=http://localhost:8000 npm run start
 docker compose up -d --build
 ```
 
-两种跑法接下来都一样：跑 doctor（命令见「三种跑法」），退出码是 0、最后一行是「全部正常」，才算这一步完成；不是 0 就看「排障」。然后让用户打开 <http://localhost:3000>，点「登录」→「开发登录」，随便填一个名字，点一位偶像发一句话。她回复了，就说明文字聊天跑通了。
+无密钥启动时，先确认前后端服务和管理员后台可访问，不要求 doctor 的未配置服务全部通过。配好公用或个人 API 后再用 doctor 和实际对话验证。让用户打开 <http://localhost:3000>，点「登录」→「开发登录」，随便填一个名字，点一位偶像发一句话。她回复了，就说明文字聊天跑通了。
 
-开发登录下所有人都是管理者，后台在 <http://localhost:3000/admin>（设置的「登录与数据」里也有「进入后台」），模型、key、限额等可以在那里改。告诉用户：后台改过的项优先于 `.env`，之后再改 `.env` 里的同一项不会生效，要先在后台把它恢复成 `.env` 的值。
+开发登录时首位注册用户是管理者，后台在 <http://localhost:3000/admin>（设置的「登录与数据」里也有「进入后台」），模型、key、限额等可以在那里改。告诉用户：后台改过的项优先于 `.env`，之后再改 `.env` 里的同一项不会生效，要先在后台把它恢复成 `.env` 的值。
 
 后端起不来时，看后端的输出（位置见「三种跑法」）：最后几行会写明是哪一项配置不对。
 

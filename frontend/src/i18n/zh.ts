@@ -529,6 +529,8 @@ export const zh = {
     signInRegion: "登录",
     signInWith: (provider: string) => `用 ${provider} 登录`,
     noProviders: "部署者还没有配置登录方式。",
+    guestSubmit: "游客登录",
+    guestBusy: "正在登录…",
     agreement: "登录即表示你已阅读{privacy}和{terms}。第一次登录时会请你确认一次。",
     refusedTitle: "没能登录",
     devTitle: "开发登录",
@@ -1691,6 +1693,15 @@ export const zh = {
         "这里改的配置存进数据库，优先于 .env。LLM、语音、生图和判断模型保存前会先试调一次，试不通不保存；保存后新的回合和新的通话立刻用上，进行中的通话不受影响，不用重启。没有标注状态的项用的是 .env 的值。",
       loading: "正在读取…",
       /** 页首的分类标签（TabsList 的读屏名）和各个标签。 */
+      restartRequired: "配置已保存，需要重启后端",
+      restartJudge: "首次启用判断模型需要重启，之后检索、好感度和照片判断才能接入这项服务。已有判断模型的参数修改即时生效。",
+      publicApiTitle: "公用 API",
+      publicApiNav: "公用 API 分类",
+      publicApiIntro: "供全站使用的 API 由管理员在这里配置。未配置 API Key 也能启动；用户的自用 API 仍在各自的设置中管理。密钥加密保存需要设置 EIDOLON_SECRET_KEY。",
+      publicApiMissing: "尚未配置公用 API。管理员可在这里填写地址、密钥和模型；用户也可以在个人设置中使用自用 API。",
+      protectPublicApis: "公用 API 全部走代理",
+      proxyUnavailable: "代理不可用，仍保留代理路线",
+      proxyKept: (reason: string) => `已选中走代理的服务不会自动回退直连，请修复代理或主动修改设置。原因：${reason}`,
       nav: "配置分类",
       tabs: {
         access: "管理员设置",
@@ -1737,7 +1748,7 @@ export const zh = {
         },
         judge: {
           title: "判断模型",
-          hint: "决定每个回合要不要检索、要不要回忆剧情，好感度开着时还判断制作人的话让好感度怎样变化，也判断通话中角色的情绪。保存前 Cloudflare 和阿里云百炼做启动时的检查，Jev 问一个最小的问题。换模型时，判断阈值的覆盖都会被清掉。进行中的通话继续用接通时的模型判断情绪。",
+          hint: "首次配置后需要重启后端；已有模型的修改即时生效。决定每个回合要不要检索、要不要回忆剧情，好感度开着时还判断制作人的话让好感度怎样变化，也判断通话中角色的情绪。保存前 Cloudflare 和阿里云百炼做启动时的检查，Jev 问一个最小的问题。换模型时，判断阈值的覆盖都会被清掉。进行中的通话继续用接通时的模型判断情绪。",
         },
         judge_thresholds: {
           title: "判断模型的阈值",
@@ -1784,7 +1795,7 @@ export const zh = {
           hint: "打开后，角色来 VA-283 光顾，制作人照她的点单调饮品。用的是对话模型，自带 LLM 的用户用他们自己的。关掉时进不了门，进行中的光顾照常走完。保存后从下一次进门起生效。",
         },
         proxy: {
-          title: "网络代理",
+          title: "公用 API 出口代理",
           hint: "打开的服务经过这个代理连服务商，其余的直连；用户自带的密钥和部署者的分开选。保存前把换了路线的部署者服务按新路线各连一次，有一项不通就不保存。保存后从下一次请求起生效，进行中的回合和通话也是；已经连上的语音连接不断。",
         },
         service_status: {

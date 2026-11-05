@@ -783,7 +783,7 @@ async def test_without_a_secret_key_an_address_with_a_password_is_refused_one_wi
     assert kept.status_code == 200, kept.text
 
 
-async def test_a_proxy_that_cannot_be_reached_as_the_server_starts_falls_back_to_env(
+async def test_a_proxy_that_cannot_be_reached_as_the_server_starts_keeps_its_route(
     make_client: ClientFactory, admins: Settings, github: FakeIdentityProvider
 ):
     tried = FakeReach()
@@ -797,5 +797,25 @@ async def test_a_proxy_that_cannot_be_reached_as_the_server_starts_falls_back_to
 
     shown = (await restarted.get(CONFIG)).json()["proxy"]
     assert shown["status"] == "failed"
+    assert shown["retained_on_failure"] is True
     assert "扮演角色的 LLM（经代理）连 llm.invalid 不通" in shown["failure"]
-    assert routes_of(restarted) == ProxySettings(None, False, frozenset())
+    assert routes_of(restarted) == ProxySettings("http://127.0.0.1:7890", True, frozenset({"chat_llm"}))
+
+
+async def test_an_unreadable_proxy_password_never_restores_a_direct_route(
+    make_client: ClientFactory, admins: Settings, github: FakeIdentityProvider,
+):
+    tried = FakeReach()
+    client = await proxy_admin(make_client, admins, github, tried)
+    change = {'enabled': True, 'url': 'http://admin:password@127.0.0.1:7890'} | ALL_OFF | {'chat_llm': True}
+    assert (await client.put(PROXY, json=change)).status_code == 200
+    restarted = await proxy_admin(make_client, replace(admins, secret_key='different-encryption-key'), github, tried)
+    await start(restarted)
+    route = routes_of(restarted)
+    assert route.enabled is True
+    selected = route.proxy_for('chat_llm')
+    assert selected is not None
+    assert '127.0.0.1:7890' in selected
+    shown = (await restarted.get(CONFIG)).json()['proxy']
+    assert shown['status'] == 'failed'
+    assert shown['retained_on_failure'] is True

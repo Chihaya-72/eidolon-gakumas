@@ -327,6 +327,9 @@ class _LLMItem(_Item):
 
     def candidate(self, current: Values, change: Values) -> Values:
         values = current | change
+        for field in CONNECTION_FIELDS:
+            if not isinstance(values[field], str) or not values[field].strip():
+                raise ConfigInvalid("请填写完整的公用 API 地址、密钥和模型")
         for field in self.efforts:
             effort = values[field]
             if effort is not None and (problem := effort_problem(effort, values["protocol"])):
@@ -573,12 +576,11 @@ class _Judge(_Item):
     _per_service = ("api_key", "account_id", "workspace_id", "region")
     """What each service has of its own, and another cannot use."""
     unavailable_reason = (
-        ".env 里没有配置判断模型，检索、记忆和通话中的情绪判断在启动时就关掉了；"
-        "要启用，请在 .env 里配置后重启"
+        "尚未配置判断模型，请在管理员设置的公用 API 中保存配置后重启后端"
     )
 
     def available(self) -> bool:
-        return self.c.settings.judge is not None
+        return True
 
     def env(self) -> Values:
         judge = self.c.settings.judge
@@ -591,12 +593,15 @@ class _Judge(_Item):
         if isinstance(judge, BailianJudgeSettings):
             return values | {"provider": "bailian", "api_key": judge.api_key, "model": judge.model,
                              "workspace_id": judge.workspace_id, "region": judge.region}
-        assert judge is not None
+        if judge is None:
+            return values | {"provider": "jev", "api_key": None, "model": JevSettings("").model}
         return values | {"provider": "jev", "api_key": judge.api_key, "model": judge.model}
 
     def candidate(self, current: Values, change: Values) -> Values:
         env = self.env()
         values = current | change
+        if not values.get("api_key") or not values.get("model"):
+            raise ConfigInvalid("请填写判断模型的密钥和模型")
         provider = values["provider"]
         if provider != current["provider"]:
             # Another service's key, account and workspace cannot be the ones in effect.
@@ -632,7 +637,13 @@ class _Judge(_Item):
         return values, model
 
     async def apply(self, values: Values, prepared: Any = None) -> None:
-        if self.c._judge is not None:
+        if not values.get("api_key"):
+            if self.c._judge is not None:
+                await self.c._judge.aclose()
+                self.c._judge = None
+            if prepared is not None:
+                await prepared.aclose()
+        elif self.c._judge is not None:
             settings = self.c._judge_settings(values)
             await self.c._judge.replace(
                 prepared or self.c._clients.judge_model(settings), settings
@@ -656,7 +667,7 @@ class _JudgeThresholds(_Item):
     unavailable_reason = _Judge.unavailable_reason
 
     def available(self) -> bool:
-        return self.c.settings.judge is not None
+        return self.c.judge_settings is not None
 
     def env(self) -> Values:
         thresholds = judge_thresholds(self.c.judge_settings, self.c.settings.emotion)
@@ -769,12 +780,11 @@ class _Affinity(_Item):
     name = AFFINITY
     fields = ("enabled",)
     unavailable_reason = (
-        ".env 里没有配置判断模型，好感度要靠它判断，在启动时就关掉了；"
-        "要启用，请在 .env 里配置判断模型后重启"
+        "好感度需要判断模型；请在管理员设置的公用 API 中配置判断模型后重启后端"
     )
 
     def available(self) -> bool:
-        return self.c.settings.judge is not None
+        return self.c.judge_settings is not None
 
     def env(self) -> Values:
         return {"enabled": self.c.settings.affinity_and_gifts}
@@ -1158,6 +1168,15 @@ class LiveConfig:
                     self._overrides[item.name] = self._read(item)
                 except _Unreadable as e:
                     self._failures[item.name] = str(e)
+                    if item.name == PROXY:
+                        # Keep the saved route even when its password cannot be read.
+                        # An unauthenticated proxy request may fail, but must never
+                        # become a direct request from the server's own address.
+                        self._overrides[PROXY] = {
+                            field: json.loads(row.value)
+                            for field in item.fields if field not in item.secrets
+                            if (row := self._rows.get(f"{PROXY}.{field}")) is not None
+                        } | {"password": None}
 
         self._routes.replace(self.proxy_settings)
         chat = self.chat_model
@@ -1186,7 +1205,7 @@ class LiveConfig:
     @property
     def judge_settings(self) -> JudgeSettings | None:
         """The judge model in effect now; None without one."""
-        if self.settings.judge is None:
+        if not self.effective(JUDGE).get("api_key"):
             return None
         return self._judge_settings(self.effective(JUDGE))
 
@@ -1241,7 +1260,7 @@ class LiveConfig:
         """Whether affinity is on now: the deployment has the judge model, and the switch
         is on."""
         item = self._items[AFFINITY]
-        return item.available() and self.effective(AFFINITY)["enabled"]
+        return self._judge is not None and item.available() and self.effective(AFFINITY)["enabled"]
 
     @property
     def reach_outs(self) -> ReachOutSettings:
@@ -1303,8 +1322,10 @@ class LiveConfig:
         """Whether the deployment has `service` on the deployer's keys now: the LLMs always;
         the others with their keys in effect, embedding and reranking as `.env` has them."""
         match service:
-            case "chat_llm" | "memory_llm":
-                return True
+            case "chat_llm":
+                return self.chat_model.text.configured
+            case "memory_llm":
+                return self.memory_llm.configured
             case "tts":
                 return bool(self.effective(TTS)["api_key"])
             case "stt":
@@ -1475,6 +1496,9 @@ class LiveConfig:
         with a warning. Logs those in effect."""
         for item in self._items.values():
             if item.name in self._failures:  # a key that can no longer be decrypted
+                if item.name == PROXY:
+                    log.warning("saved proxy credentials cannot be read; retaining the proxy route: %s", self._failures[PROXY])
+                    continue
                 log.warning(
                     "the admin console's override of %s cannot be read, so .env's is used"
                     " until an admin fixes or restores it: %s",
@@ -1496,6 +1520,9 @@ class LiveConfig:
             except ConfigRejected as e:
                 self._failures[item.name] = str(e)
                 await item.apply(self.effective(item.name))
+                if item.name == PROXY:
+                    log.warning("proxy is unavailable; retaining its route without direct fallback: %s", e)
+                    continue
                 if item.name == JUDGE:
                     await self._judge_changed(values, self.effective(item.name), clear=False)
                 log.warning(
@@ -1542,10 +1569,14 @@ class LiveConfig:
             }
             if name == MEMORY_LLM:
                 entry["follows_chat"] = self._memory_follows()
+            if name == JUDGE and self.judge_settings is not None and self._judge is None:
+                entry["restart_required"] = True
             if name == SERVICE_STATUS:
                 entry["unconfigured"] = [s for s in SERVICE_NAMES if not self.has_service(s)]
             if name == PROXY:
                 targets = self._proxy_targets()
+                if failure and override is not None:
+                    entry["retained_on_failure"] = True
                 own = OWN_KEYS_PROXIED.values()
                 entry["unconfigured"] = [
                     s for s in PROXIED_SERVICES if s not in targets and s not in own
@@ -1686,10 +1717,11 @@ class LiveConfig:
     def _proxy_targets(self) -> dict[ProxiedService, str]:
         """Where each of the deployer's services that is configured reaches its provider;
         users' own keys, whatever their providers, are not among them."""
-        targets: dict[ProxiedService, str] = {
-            "chat_llm": self.chat_model.text.base_url,
-            "memory_llm": self.memory_llm.base_url,
-        }
+        targets: dict[ProxiedService, str] = {}
+        if self.chat_model.text.configured:
+            targets["chat_llm"] = self.chat_model.text.base_url
+        if self.memory_llm.configured:
+            targets["memory_llm"] = self.memory_llm.base_url
         judge = self.judge_settings
         if isinstance(judge, CloudflareJudgeSettings):
             targets["judge"] = CLOUDFLARE_API_URL
@@ -1736,7 +1768,7 @@ class LiveConfig:
     def _in_effect(self, item: _Item, model: str | None = None) -> bool:
         return (
             item.name in self._overrides
-            and item.name not in self._failures
+            and (item.name not in self._failures or item.name == PROXY)
             and self._bound_holds(item, model)
         )
 
