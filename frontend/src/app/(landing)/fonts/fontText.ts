@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import { copy } from "@/i18n";
 import { PROVIDER_LABELS } from "@/lib/signIn";
 
-const CHARACTERS = new URL("../../../../../characters/", import.meta.url);
+const CHARACTERS = new URL("../../../../../characters/gakumas/", import.meta.url);
 
 /** 不管文案里有没有，总要有的字：ASCII（偶像编号、色值、拉丁字母的组合名），和竖排里常见的标点。 */
 const ALWAYS =

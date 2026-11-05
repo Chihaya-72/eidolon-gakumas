@@ -2,6 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { getCharacters, isSignedIn } from "@/lib/backend";
 
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ toString: () => "eidolon_visitor=visitor; eidolon_access=grant" }),
+  headers: async () => new Headers({ "x-eidolon-client-ip": "192.0.2.1" }),
+}));
+
 function backendAnswers(status: number) {
   const fetch = vi.fn(async (_url: string, _init: RequestInit) => new Response(null, { status }));
   vi.stubGlobal("fetch", fetch);
@@ -48,7 +53,7 @@ describe("getCharacters: the characters for the landing page, asked for on the s
     vi.unstubAllGlobals();
   });
 
-  it("is the backend's character list, kept for a while rather than asked for on every visit", async () => {
+  it("forwards access cookies and IP without caching another visitor's data", async () => {
     const characters = [{ id: "mano", name: "櫻木真乃" }];
     const fetch = vi.fn(async (_url: string, _init: RequestInit) => Response.json(characters));
     vi.stubGlobal("fetch", fetch);
@@ -56,7 +61,9 @@ describe("getCharacters: the characters for the landing page, asked for on the s
     expect(await getCharacters()).toEqual(characters);
     const [url, init] = fetch.mock.calls[0];
     expect(url).toMatch(/\/api\/characters$/);
-    expect(init.next?.revalidate).toBeGreaterThan(0);
+    expect(init.cache).toBe("no-store");
+    expect(new Headers(init.headers).get("cookie")).toContain("eidolon_access=grant");
+    expect(new Headers(init.headers).get("x-eidolon-client-ip")).toBe("192.0.2.1");
   });
 
   it("is empty when the backend fails or cannot be reached, and the landing page goes on without the spectrum", async () => {

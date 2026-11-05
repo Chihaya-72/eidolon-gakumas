@@ -259,7 +259,7 @@ def test_the_committed_set_loads(tmp_path: Path):
         )
     # Characters of different sorts, one under 18 at least.
     assert len({c.character for c in cases}) >= 5
-    assert any(characters[c.character].age < 18 for c in cases)
+    assert any((age := characters[c.character].age) is not None and age < 18 for c in cases)
     # Not in words the glossary avoids.
     text = "".join(f"{e.get('history')}{e['said']}{e['note']}" for e in entries)
     for avoided in ("生理期", "月经期", "PMS", "经前期综合征", "大姨妈", "魔法期"):

@@ -27,6 +27,7 @@ from typing import Any, Generic, Literal, TypeVar
 from eidolon.activity import ActivityLog, CallEndReason, Recording, Result
 from eidolon.llm import TurnLLMs
 from eidolon.own_keys import BroughtKeys, CallKeys, OwnKeys, TurnKeys
+from eidolon.service_queue import Lease, ServiceQueue
 from eidolon.usage import OverLimit, UsageLimiter, Use
 
 log = logging.getLogger(__name__)
@@ -62,7 +63,10 @@ class CoolingDown(Exception):
 class Admission(Generic[K]):
     """One turn, call or visit let begin, held until it is settled."""
 
-    def __init__(self, kind: Admitted, keys: K, recording: Recording, use: Use) -> None:
+    def __init__(
+        self, kind: Admitted, keys: K, recording: Recording, use: Use,
+        queue_lease: Lease | None = None,
+    ) -> None:
         self._counted = _COUNTED[kind]
         self.keys = keys
         """Whose keys it runs on."""
@@ -70,6 +74,12 @@ class Admission(Generic[K]):
         """Its activity record, which the service calls made in it are recorded under."""
         self._use = use
         self._settled = False
+        self._queue_lease = queue_lease
+
+    def take_queue_lease(self) -> Lease | None:
+        """A bar's first reply owns its slot only until that reply ends, not the visit."""
+        lease, self._queue_lease = self._queue_lease, None
+        return lease
 
     @property
     def llms(self) -> TurnLLMs:
@@ -112,7 +122,11 @@ class Admission(Generic[K]):
             try:
                 await self.recording.finish(result, duration, end_reason)
             finally:
-                self.keys.release()
+                try:
+                    self.keys.release()
+                finally:
+                    if self._queue_lease is not None:
+                        await asyncio.shield(self._queue_lease.release())
 
 
 class Admissions:
@@ -124,6 +138,7 @@ class Admissions:
         activity: ActivityLog,
         own_keys: OwnKeys,
         cooldown_until: Callable[[str, str], Awaitable[datetime | None]],
+        queue: ServiceQueue | None = None,
     ) -> None:
         """`cooldown_until` tells when the cooldown a character (by id) is in with a user
         ends, None if she is in none or affinity is off."""
@@ -131,8 +146,13 @@ class Admissions:
         self._activity = activity
         self._own_keys = own_keys
         self._cooldown_until = cooldown_until
+        self._queue = queue
         self._settling: set[asyncio.Future[Any]] = set()
         """What was let in as no one waited for it any more, till it is settled."""
+
+    @property
+    def queue_enabled(self) -> bool:
+        return self._queue is not None
 
     async def refuse_while_cooling(self, user_id: str, character_id: str) -> None:
         """Raise CoolingDown if the character is in a cooldown with the user: as each turn
@@ -149,10 +169,20 @@ class Admissions:
         OverLimit when they have no turns left this hour; then, and whatever else fails before it
         begins, it is recorded and takes no use of the limit."""
         await self.refuse_while_cooling(user_id, character_id)
-        return await self._admit("turn", user_id, character_id, self._own_keys.for_turn(brought))
+        lease = await self._reserve(user_id, "turn", brought.llm is not None)
+        try:
+            await self.refuse_while_cooling(user_id, character_id)
+            return await self._admit(
+                "turn", user_id, character_id, self._own_keys.for_turn(brought), lease
+            )
+        except BaseException:
+            await asyncio.shield(lease.release())
+            raise
 
     async def call(
-        self, user_id: str, character_id: str, brought: BroughtKeys
+        self, user_id: str, character_id: str, brought: BroughtKeys,
+        available: Callable[[], None] | None = None,
+        target: str | None = None,
     ) -> Admission[CallKeys]:
         """Let the user's next call with `character_id`, bringing `brought`, begin. Raises
         OverLimit when they have no calls left this hour; then, and whatever else fails
@@ -160,7 +190,21 @@ class Admissions:
         CallsUnavailable, recording nothing, when the deployment has no keys for calls and
         neither does the call bring them; CoolingDown as a turn does."""
         await self.refuse_while_cooling(user_id, character_id)
-        return await self._admit("call", user_id, character_id, self._own_keys.for_call(brought))
+        lease = (
+            await self._queue.acquire(
+                user_id, "call", bypass={"llm", "stt", "tts"} <= brought.services, target=target
+            ) if self._queue is not None else Lease()
+        )
+        try:
+            await self.refuse_while_cooling(user_id, character_id)
+            if available is not None:
+                available()
+            return await self._admit(
+                "call", user_id, character_id, self._own_keys.for_call(brought), lease
+            )
+        except BaseException:
+            await asyncio.shield(lease.release())
+            raise
 
     async def visit(
         self, user_id: str, character_id: str, brought: BroughtKeys
@@ -169,7 +213,23 @@ class Admissions:
         on keys as a text turn's are, whether she is in a cooldown with them or not. Raises
         OverLimit when they have no visits left this hour; then, and whatever else fails
         before it begins, it is recorded and takes no use of the limit."""
-        return await self._admit("visit", user_id, character_id, self._own_keys.for_turn(brought))
+        lease = (
+            await self._queue.acquire(user_id, "bar", bypass=brought.llm is not None)
+            if self._queue is not None else Lease()
+        )
+        try:
+            return await self._admit(
+                "visit", user_id, character_id, self._own_keys.for_turn(brought), lease
+            )
+        except BaseException:
+            await asyncio.shield(lease.release())
+            raise
+
+    async def _reserve(self, user_id: str, kind: Literal["turn", "call"], own: bool) -> Lease:
+        return (
+            await self._queue.acquire(user_id, kind, bypass=own)
+            if self._queue is not None else Lease()
+        )
 
     async def admitted(
         self,
@@ -183,6 +243,8 @@ class Admissions:
         try:
             return await asyncio.shield(task)
         except asyncio.CancelledError:
+            if self._queue is not None:
+                await self._queue.cancel_waiter(task)
             self._settling.add(task)
 
             def settle(done: "asyncio.Future[Admission[K]]") -> None:
@@ -207,7 +269,8 @@ class Admissions:
             log.error("settling what never began failed", exc_info=error)
 
     async def _admit(
-        self, kind: Admitted, user_id: str, character_id: str, keys: K
+        self, kind: Admitted, user_id: str, character_id: str, keys: K,
+        lease: Lease | None = None,
     ) -> Admission[K]:
         try:
             recording = self._activity.begin(
@@ -221,8 +284,17 @@ class Admissions:
             except BaseException:
                 await recording.finish(_FAILED[kind])
                 raise
+            try:
+                # A visit has not begun serving its first reply yet: the bar still
+                # revalidates its switch and draws/replaces the visit before _called.
+                if lease is not None and kind != "visit":
+                    await lease.start()
+            except BaseException:
+                await use.give_back()
+                await recording.finish(_FAILED[kind])
+                raise
         except BaseException:
             keys.release()
             raise
-        return Admission(kind, keys, recording, use)
+        return Admission(kind, keys, recording, use, lease)
 

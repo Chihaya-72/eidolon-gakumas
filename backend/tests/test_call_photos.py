@@ -36,11 +36,13 @@ from tests.fakes import (
     FAKE_JUDGE,
     FakeImageService,
     FakeLLM,
+    FakeLLMService,
     FakeSpeech,
     build_faked,
     context_of,
 )
 from tests.test_call_turns import NOW, spoken
+from tests.test_admission import ALL_OWN
 from tests.test_own_image import MINE, MY_KEY, keys_of, photo_uses
 from tests.test_photos import IMAGE, REPLY, asking
 from tests.test_text_turn import start_conversation
@@ -68,17 +70,21 @@ async def call(
     frames: Sequence[Frame],
     *,
     after: asyncio.Event | None = None,
+    shared: bool = True,
 ) -> tuple[list[str], list[dict]]:
     """Run the frames through a call into the conversation, connected; the text sent to
     TTS and the messages sent to the browser. Given `after`, it is set once the call is
     over, and the backend stays up till whatever it set off is settled."""
     backend = build_faked(
-        settings, llm, clients=asking(), clock=lambda: NOW, image_transport=image.transport()
+        settings, llm, clients=asking(), clock=lambda: NOW, image_transport=image.transport(),
+        own_llm_service=FakeLLMService(llm),
     )
     try:
         conversation = await backend.store.get_conversation(conversation_id)
         assert conversation is not None
-        admission = await backend.admissions.call(conversation.user_id, "mano", BroughtKeys())
+        admission = await backend.admissions.call(
+            conversation.user_id, "mano", BroughtKeys() if shared else ALL_OWN
+        )
         mano = backend.characters["mano"]
         on = Call(conversation, mano, admission.llms, False, "standard")
         outcome = CallOutcome(
@@ -149,7 +155,7 @@ async def test_asked_in_a_call_she_sends_one_told_as_it_is_generated_and_as_it_c
     image = FakeImageService()
     spoken_text, messages = await call(
         settings, conversation_id, FakeLLM(REPLY), image,
-        [spoken(ASKED), SleepFrame(0.5)],
+        [spoken(ASKED), SleepFrame(0.5)], shared=False,
     )
     record = await record_of(client, conversation_id)
 
@@ -175,11 +181,26 @@ async def test_one_not_sent_is_told_why_while_the_call_is_on(
     image.status = 500
     _, messages = await call(
         settings, conversation_id, FakeLLM(REPLY), image,
-        [spoken(ASKED), SleepFrame(0.5)],
+        [spoken(ASKED), SleepFrame(0.5)], shared=False,
     )
 
     [_, failed] = photo_messages(messages)
     assert (failed["status"], failed["reason"]) == ("failed", "service_error")
+
+
+async def test_a_shared_calls_photo_waits_until_the_call_releases_its_service_slot(
+    settings: Settings, conversation: tuple[httpx.AsyncClient, str],
+):
+    client, conversation_id = conversation
+    image = FakeImageService()
+    _, messages = await call(
+        settings, conversation_id, FakeLLM(REPLY), image,
+        [spoken(ASKED), SleepFrame(0.3)], after=asyncio.Event(),
+    )
+    assert [message["status"] for message in photo_messages(messages)] == ["pending"]
+    [_, reply] = await record_of(client, conversation_id)
+    assert reply["photo"]["status"] == "ready"
+    assert len(image.requests) == 1
 
 
 async def test_one_out_after_the_call_is_over_is_told_no_more_and_kept_with_her_reply(

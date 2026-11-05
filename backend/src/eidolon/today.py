@@ -99,6 +99,8 @@ def _lives_on_this_day(
 
 def her_birthday(character: Character) -> str:
     """Her birthday as she always knows it, the same for every user."""
+    if character.birthday is None:
+        return "原作没有公开你的生日，不要编造具体日期。"
     return f"你的生日是{character.birthday.month}月{character.birthday.day}日。"
 
 

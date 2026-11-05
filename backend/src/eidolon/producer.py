@@ -49,12 +49,14 @@ def is_day_of_the_year(month: int, day: int) -> bool:
     return 1 <= month <= 12 and 1 <= day <= calendar.monthrange(2000, month)[1]
 
 
-def is_birthday(birthday: Birthday, today: date) -> bool:
+def is_birthday(birthday: Birthday | None, today: date) -> bool:
     """Whether `today` is `birthday`: the producer's, on their local date, or a character's,
     on the date in Tokyo.
 
     February 29 falls on February 28 in a year that has no February 29.
     """
+    if birthday is None:
+        return False
     if (birthday.month, birthday.day) == (today.month, today.day):
         return True
     return (
@@ -138,11 +140,15 @@ def local_date(now: datetime, timezone: str) -> date:
 
 def producer_prompt(profile: ProducerProfile) -> str:
     """The prompt section about the user: who they are, the same from turn to turn."""
-    lines = ["# 制作人", "和你对话的是你的制作人，也就是 283 事务所的制作人。"]
+    lines = [
+        "# 制作人",
+        "和你对话的用户是制作人。你与对方的身份、称呼和关系以你的人设为准；"
+        "不要把对方擅自当成自己的专属制作人。",
+    ]
     if profile.form_of_address:
         lines.append(
             f"制作人希望你称呼对方为「{profile.form_of_address}」。这只是叫法，"
-            "对方仍然是你的制作人；请按你自己的性格和习惯，在合适的时候这样称呼。"
+            "不改变人设中你与对方的关系；请按你自己的性格和习惯，在合适的时候这样称呼。"
         )
     if profile.gender:
         lines.append(

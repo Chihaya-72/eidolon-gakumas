@@ -1,0 +1,224 @@
+{
+  "as_of": "2026-11-04",
+  "office": {
+    "name": "初星学园及相关人物",
+    "staff": [
+      {
+        "name": "根绪亚纱里",
+        "reading": "ねお あさり",
+        "position": "初星学园教师",
+        "sources": [
+          "sheets/asari.md"
+        ]
+      },
+      {
+        "name": "冰渡香名江",
+        "reading": "ひわたり かなえ",
+        "position": "仓本千奈的专属女仆",
+        "sources": [
+          "sheets/kanae.md"
+        ]
+      },
+      {
+        "name": "十王邦夫",
+        "reading": "じゅうおう くにお",
+        "position": "初星学园学园长",
+        "sources": [
+          "sheets/kunio.md"
+        ]
+      },
+      {
+        "name": "十王龙正",
+        "reading": "じゅうおう りゅうせい",
+        "position": "100Production 代表董事",
+        "sources": [
+          "sheets/ryusho.md"
+        ]
+      },
+      {
+        "name": "贺阳继",
+        "reading": "",
+        "position": "贺阳燐羽的姐姐、上一代启明星",
+        "sources": [
+          "sheets/tsugu.md"
+        ]
+      },
+      {
+        "name": "姬崎汐莉",
+        "reading": "",
+        "position": "姬崎莉波的妹妹、小学生",
+        "sources": [
+          "sheets/shiri.md"
+        ]
+      },
+      {
+        "name": "黑井崇男",
+        "reading": "くろい たかお",
+        "position": "961Pro 社长",
+        "sources": [
+          "sheets/kuroi.md"
+        ]
+      }
+    ]
+  },
+  "units": [],
+  "idols": [
+    {
+      "name": "花海咲季",
+      "reading": "はなみ さき",
+      "unit": null,
+      "cv": null,
+      "sources": [
+        "sheets/saki.md"
+      ]
+    },
+    {
+      "name": "月村手毬",
+      "reading": "つきむら てまり",
+      "unit": null,
+      "cv": null,
+      "sources": [
+        "sheets/temari.md"
+      ]
+    },
+    {
+      "name": "藤田琴音",
+      "reading": "ふじた ことね",
+      "unit": null,
+      "cv": null,
+      "sources": [
+        "sheets/kotone.md"
+      ]
+    },
+    {
+      "name": "有村麻央",
+      "reading": "ありむら まお",
+      "unit": null,
+      "cv": null,
+      "sources": [
+        "sheets/mao.md"
+      ]
+    },
+    {
+      "name": "葛城莉莉娅",
+      "reading": "かつらぎ りりや",
+      "unit": null,
+      "cv": null,
+      "sources": [
+        "sheets/lilja.md"
+      ]
+    },
+    {
+      "name": "仓本千奈",
+      "reading": "くらもと ちな",
+      "unit": null,
+      "cv": null,
+      "sources": [
+        "sheets/china.md"
+      ]
+    },
+    {
+      "name": "紫云清夏",
+      "reading": "しうん すみか",
+      "unit": null,
+      "cv": null,
+      "sources": [
+        "sheets/sumika.md"
+      ]
+    },
+    {
+      "name": "篠泽广",
+      "reading": "しのさわ ひろ",
+      "unit": null,
+      "cv": null,
+      "sources": [
+        "sheets/hiro.md"
+      ]
+    },
+    {
+      "name": "姬崎莉波",
+      "reading": "ひめさき りなみ",
+      "unit": null,
+      "cv": null,
+      "sources": [
+        "sheets/rinami.md"
+      ]
+    },
+    {
+      "name": "花海佑芽",
+      "reading": "はなみ うめ",
+      "unit": null,
+      "cv": null,
+      "sources": [
+        "sheets/ume.md"
+      ]
+    },
+    {
+      "name": "十王星南",
+      "reading": "じゅうおう せな",
+      "unit": null,
+      "cv": null,
+      "sources": [
+        "sheets/sena.md"
+      ]
+    },
+    {
+      "name": "秦谷美铃",
+      "reading": "はたや みすず",
+      "unit": null,
+      "cv": null,
+      "sources": [
+        "sheets/misuzu.md"
+      ]
+    },
+    {
+      "name": "雨夜燕",
+      "reading": "あまや つばめ",
+      "unit": null,
+      "cv": null,
+      "sources": [
+        "sheets/tsubame.md"
+      ]
+    },
+    {
+      "name": "贺阳燐羽",
+      "reading": "かや りんは",
+      "unit": null,
+      "cv": null,
+      "sources": [
+        "sheets/rinha.md"
+      ]
+    },
+    {
+      "name": "白草四音",
+      "reading": "しらくさ しおん",
+      "unit": null,
+      "cv": null,
+      "sources": [
+        "sheets/shion.md"
+      ]
+    },
+    {
+      "name": "白草月花",
+      "reading": "しらくさ つきか",
+      "unit": null,
+      "cv": null,
+      "sources": [
+        "sheets/gekka.md"
+      ]
+    },
+    {
+      "name": "蓝井抚子",
+      "reading": "あおい なでしこ",
+      "unit": null,
+      "cv": null,
+      "sources": [
+        "sheets/nadeshiko.md"
+      ]
+    }
+  ],
+  "releases": [],
+  "songs": [],
+  "lives": [],
+  "setting": "# 世界设定\n这是《学园偶像大师》的世界。初星学园设有偶像科与制作人科，用户是制作人科的学生；用户与当前角色的具体关系以该角色的人设为准，并非所有角色都是用户负责的偶像。\n初星学园的偶像包括花海咲季、月村手毬、藤田琴音、有村麻央、葛城莉莉娅、仓本千奈、紫云清夏、篠泽广（剧情汉化也写作筱泽广）、姬崎莉波、花海佑芽、十王星南、秦谷美铃、雨夜燕。\n贺阳燐羽从初星学园转学到极月学园，与 961Pro 有合约；白草四音、白草月花、蓝井抚子也属于极月学园及 961Pro。黑井崇男是 961Pro 社长。不要把这些人说成初星学园的在校偶像。\n根绪亚纱里是初星学园教师；十王邦夫是学园长；十王龙正是 100Production 代表董事，也是十王星南的父亲。冰渡香名江是仓本千奈的专属女仆；贺阳继是贺阳燐羽的姐姐、上一代启明星；姬崎汐莉是姬崎莉波的妹妹，仍在读小学。\n花海咲季与花海佑芽是姐妹；姬崎莉波与姬崎汐莉是姐妹；白草月花与白草四音是姐妹。月村手毬、秦谷美铃与贺阳燐羽曾组成 SyngUp!。Re;IRIS、REVERSI、Begrazia 等组合经历和单独培育线，按各自人设区分，不能混成同一段经历。\n每位角色完整的人设是身份、说话习惯、称呼、关系和剧情的依据。没有公开的生日、年龄、外貌、经历和心事不要编造；不把其他角色的经历当作自己的经历；不把 283 事务所或《闪耀色彩》的设定当作本作背景。"
+}

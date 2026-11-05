@@ -48,7 +48,7 @@ async def signed_in(client: httpx.AsyncClient) -> bool:
 async def test_the_first_sign_in_with_github_makes_a_user_and_signs_them_in(
     make_client: ClientFactory, settings: Settings, github: FakeIdentityProvider
 ):
-    # Without dev login, under which everyone would be an admin.
+    # The first real OAuth signup bootstraps the administrator, with dev login disabled.
     client = make_client(FakeLLM(), user=None, settings=replace(settings, dev_login=False))
 
     res = await sign_in_with(client, github, github_identity())
@@ -64,7 +64,7 @@ async def test_the_first_sign_in_with_github_makes_a_user_and_signs_them_in(
         "sign_in_methods": [
             {"provider": "github", "display_name": "producer", "email": "producer@example.com"}
         ],
-        "is_admin": False,
+        "is_admin": True,
         "exempting_keys": ["llm", "tts", "stt"],
         "reach_outs": None,
         "cycles": None,

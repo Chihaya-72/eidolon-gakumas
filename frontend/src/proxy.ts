@@ -10,8 +10,30 @@ import { NextResponse, type NextRequest } from "next/server";
 import { contentSecurityPolicy } from "@/lib/contentSecurityPolicy";
 import { playRedirect } from "@/lib/playRoute";
 import { settingsRedirect } from "@/lib/settingsCategory";
+import { BACKEND_URL } from "@/lib/backend";
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
+  if (request.nextUrl.pathname !== "/access" && request.nextUrl.pathname !== "/favicon.ico") {
+    try {
+      const headers = new Headers({ cookie: request.headers.get("cookie") ?? "" });
+      const ip = request.headers.get("x-eidolon-client-ip");
+      if (ip) headers.set("x-eidolon-client-ip", ip);
+      const checked = await fetch(`${BACKEND_URL}/api/access/status`, { headers, cache: "no-store" });
+      if (!checked.ok) throw new Error("Access check failed");
+      const state = await checked.json();
+      if (!state.passed) {
+        const target = new URL("/access", request.url);
+        target.searchParams.set("returnTo", request.nextUrl.pathname + request.nextUrl.search);
+        const response = NextResponse.redirect(target);
+        for (const cookie of checked.headers.getSetCookie()) response.headers.append("set-cookie", cookie);
+        response.headers.set("Cache-Control", "no-store");
+        response.headers.set("Content-Security-Policy", contentSecurityPolicy(process.env.EIDOLON_STAND_ASSETS_URL));
+        return response;
+      }
+    } catch {
+      return new NextResponse("暂时无法验证网站访问权限，请稍后重试", { status: 503, headers: { "Cache-Control": "no-store" } });
+    }
+  }
   const address = request.nextUrl.pathname + request.nextUrl.search;
   const to = settingsRedirect(address) ?? playRedirect(address);
   const response = to ? NextResponse.redirect(new URL(to, request.url)) : NextResponse.next();

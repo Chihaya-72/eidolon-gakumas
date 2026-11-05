@@ -51,6 +51,11 @@ CREATE TABLE IF NOT EXISTS users (
     banned_at TEXT,
     ban_note TEXT
 );
+-- A permanent bootstrap marker: deleting the first user never promotes a later signup.
+CREATE TABLE IF NOT EXISTS admin_bootstrap (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    claimed INTEGER NOT NULL DEFAULT 0
+);
 -- Only a hash of each session's token is kept; the times are epoch seconds.
 CREATE TABLE IF NOT EXISTS sessions (
     token_hash TEXT PRIMARY KEY,
@@ -201,6 +206,8 @@ class User:
     banned_at: str | None = None
     ban_note: str | None = None
     """Why they were banned, as the admin who banned them wrote; only admins see it."""
+    is_admin: bool = False
+    """A persisted administrator, including the deployment's first registered user."""
 
 
 @dataclass(frozen=True)
@@ -562,7 +569,7 @@ class Store:
     async def create_user(self, name: str) -> User:
         user = User(uuid.uuid4().hex, name, _now())
         await self._db.write(_insert_user, user)
-        return user
+        return await self.get_user(user.id)
 
     async def list_users(self) -> list[User]:
         return await self._db.read(_users)
@@ -629,7 +636,7 @@ class Store:
             await self._db.write(_insert_user_signing_in_with, user, method, admit)
         except sqlite3.IntegrityError:
             raise IdentityTaken from None
-        return user
+        return await self.get_user(user.id)
 
     async def add_sign_in_method(self, user_id: str, method: SignInMethod) -> None:
         """Raises IdentityTaken if the identity already belongs to someone."""
@@ -869,7 +876,7 @@ class Store:
         await self._db.write(_reach_out_recorded_as, reach_out_id, record_id)
 
 
-_USER_COLUMNS = "id, name, created_at, consented_at, banned_at, ban_note"
+_USER_COLUMNS = "id, name, created_at, consented_at, banned_at, ban_note, is_admin"
 _MESSAGE_COLUMNS = (
     "m.id AS id, role, text, ja, zh, segments, m.created_at AS created_at, affinity"
 )
@@ -891,6 +898,9 @@ def _open(db: sqlite3.Connection) -> None:
         db.execute("ALTER TABLE users ADD COLUMN name TEXT")
         db.execute("UPDATE users SET name = id")
     _add_missing_columns(db, "users", ("consented_at", "banned_at", "ban_note"), "TEXT")
+    _add_missing_columns(db, "users", ("is_admin",), "INTEGER NOT NULL DEFAULT 0")
+    db.execute("INSERT OR IGNORE INTO admin_bootstrap (id, claimed) VALUES (1, 0)")
+    _bootstrap_admin(db)
     _add_missing_columns(db, "producer_profiles", ("birthday_month", "birthday_day"), "INTEGER")
     _add_missing_columns(
         db, "producer_profiles", ("city_name", "city_adm2", "city_adm1", "city_country"), "TEXT"
@@ -933,6 +943,17 @@ def _insert_user(db: sqlite3.Connection, user: User) -> None:
         "INSERT INTO users (id, name, created_at) VALUES (?, ?, ?)",
         (user.id, user.name, user.created_at),
     )
+    _bootstrap_admin(db)
+
+
+def _bootstrap_admin(db: sqlite3.Connection) -> None:
+    """Called inside schema preparation or the registration transaction, never per login."""
+    if db.execute("SELECT claimed FROM admin_bootstrap WHERE id = 1").fetchone()[0]:
+        return
+    first = db.execute("SELECT id FROM users ORDER BY created_at, rowid LIMIT 1").fetchone()
+    if first is not None:
+        db.execute("UPDATE users SET is_admin = 1 WHERE id = ?", (first[0],))
+        db.execute("UPDATE admin_bootstrap SET claimed = 1 WHERE id = 1")
 
 
 def _users(db: sqlite3.Connection) -> list[User]:

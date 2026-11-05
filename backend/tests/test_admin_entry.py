@@ -1,7 +1,7 @@
-"""Entering the admin console: admins are the users who sign in with an identity the
-deployer lists in `EIDOLON_ADMINS`. Everyone else, signed in or not, finds no admin
-console at all (404), and without the list there is none for anyone; unless dev login is
-on, which lets anyone sign in as anyone: then without the list everyone is an admin."""
+"""Persisted first-user administrators and explicit environment-listed identities.
+
+Development sign-in follows exactly the same first-user privilege rules.
+"""
 
 from dataclasses import replace
 
@@ -74,7 +74,7 @@ async def test_an_admin_who_has_not_agreed_to_the_terms_finds_no_admin_console(
     assert await enters(client)
 
 
-async def test_without_the_list_there_is_no_admin_console(
+async def test_first_user_is_admin_without_environment_list(
     make_client: ClientFactory, settings: Settings, github: FakeIdentityProvider
 ):
     settings = replace(settings, dev_login=False)
@@ -82,10 +82,14 @@ async def test_without_the_list_there_is_no_admin_console(
     await sign_in_with(client, github, github_identity("1001"))
     await agree_to_terms(client)
 
-    assert not await enters(client) and not await is_admin(client)
+    assert await enters(client) and await is_admin(client)
+    second = make_client(FakeLLM(), user=None, settings=settings)
+    await sign_in_with(second, github, github_identity("1002"))
+    await agree_to_terms(second)
+    assert not await enters(second) and not await is_admin(second)
 
 
-async def test_with_dev_login_and_without_the_list_everyone_is_an_admin(
+async def test_dev_login_grants_only_first_user_and_preserves_persisted_admin(
     make_client: ClientFactory, settings: Settings
 ):
     by_name = make_client(FakeLLM())  # dev login is on in the tests
@@ -95,7 +99,9 @@ async def test_with_dev_login_and_without_the_list_everyone_is_an_admin(
 
     assert await enters(by_name) and await is_admin(by_name)
     assert not await enters(nobody)
-    assert not await enters(not_listed) and not await is_admin(not_listed)
+    assert await enters(not_listed) and await is_admin(not_listed)
+    second = make_client(FakeLLM(), user="second")
+    assert not await enters(second) and not await is_admin(second)
 
 
 async def test_a_banned_admin_finds_no_admin_console(

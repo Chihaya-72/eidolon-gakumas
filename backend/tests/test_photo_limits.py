@@ -33,6 +33,7 @@ from tests.fakes import (
 from tests.test_admin_users import ADMIN, admin_client, find
 from tests.test_live_config import CONFIG, recorded
 from tests.test_live_config import admin_client as live_admin_client
+from tests.test_live_config_services import backend_of
 from tests.test_live_config_limits import LIMITS
 from tests.test_own_llm import LLM
 from tests.test_photo_failures import ASKED, record_of, until
@@ -128,7 +129,7 @@ async def test_a_photo_not_sent_is_given_back(make_client: ClientFactory, settin
     assert (await settled(client, photo["id"]))["status"] == "ready"
 
 
-async def test_one_sent_with_a_reply_never_recorded_is_not_given_back(
+async def test_a_photo_canceled_before_its_shared_service_begins_takes_no_photo_limit(
     make_client: ClientFactory, settings: Settings
 ):
     image = FakeImageService()
@@ -142,9 +143,35 @@ async def test_one_sent_with_a_reply_never_recorded_is_not_given_back(
 
     await leave_turn(client, conversation, ASKED, after="photo")
     image.gate.set()
+    await until(lambda: not backend_of(client).photos._generating)
+    assert image.requests == []
+    sent = await send_turn(client, conversation, ASKED)
+    [photo] = photo_events(sent)
+    assert (await settled(client, photo["id"]))["status"] == "ready"
+    assert used_up(sent) == []
+
+
+async def test_a_photo_already_sent_for_an_own_llm_reply_is_not_given_back_on_disconnect(
+    make_client: ClientFactory, settings: Settings, own_llm: FakeLLMService,
+):
+    image = FakeImageService()
+    image.gate = asyncio.Event()
+    started = asyncio.Event()
+    own_llm.llm = FakeLLM([f"<photo>{SELFIE}</photo>", started, WORDS, HANG], REPLY)
+    client = make_client(
+        FakeLLM(), clients=asking(), settings=photos_an_hour(settings, 1), clock=FakeClock(),
+        image_transport=image.transport(),
+    )
+    conversation = await start_conversation(client)
+    leaving = asyncio.create_task(leave_turn(
+        client, conversation, ASKED, after="delta", own_keys={"llm": LLM}
+    ))
+    await until(lambda: image.requests)
+    started.set()
+    await leaving
+    image.gate.set()
     await until(lambda: recorded(client, "image"))
-    await asyncio.sleep(0.05)
-    refused = await send_turn(client, conversation, ASKED)
+    refused = await send_turn(client, conversation, ASKED, own_llm=LLM)
 
     assert photo_events(refused) == [] and len(used_up(refused)) == 1
 

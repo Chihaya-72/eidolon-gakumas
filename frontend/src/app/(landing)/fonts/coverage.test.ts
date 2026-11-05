@@ -28,11 +28,15 @@ describe("落地页的字体子集", () => {
     expect(lacking, `第 0 幕的字体子集缺这些字：${lacking.join("")}。${regenerate}`).toEqual([]);
   });
 
-  it("名字、组合名、招呼的日语原文和幕名，Shippori Mincho B1 里每个字都有", () => {
-    const lacking = missing(japaneseText(), subset.glyphs["shippori-mincho-b1-600"]);
+  it("名字、组合名、日语原文和幕名由日文字体及中文名字后备字体完整覆盖", () => {
+    // 角色包允许中文显示名；landing.css 的 --lp-ja 用 Noto Serif SC 补齐简体字。
+    const lacking = missing(
+      japaneseText(),
+      subset.glyphs["shippori-mincho-b1-600"] + subset.glyphs["noto-serif-sc-600"],
+    );
     expect(
       lacking,
-      `Shippori Mincho B1 没有这些字：${lacking.join("")}，它们会退回别的字体。先确认子集是新的（${regenerate}），仍然缺就是这套字体本身没有这些字。`,
+      `落地页的日文及中文名字字体缺这些字：${lacking.join("")}。${regenerate}`,
     ).toEqual([]);
   });
 

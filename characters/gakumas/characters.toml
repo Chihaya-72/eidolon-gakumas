@@ -1,0 +1,483 @@
+# 学园偶像大师：用户提供的 24 份人设，原文完整保存在 sheets/。
+# unknown 表示人设没有公开，不补造年龄、生日。
+# voice_id 留空，待配置对应角色的 Fish Audio 音色；不沿用闪耀色彩音色。
+# color 是中性界面占位色，不声称为官方印象色。
+# liked_gifts 与 bar_* 是玩法的统一默认值，不作为原作事实写入人设或资料。
+
+[[characters]]
+id = "saki"
+name = "花海咲季"
+short_name = "咲季"
+name_zh = "花海咲季"
+intro = "《学园偶像大师》中初星学园（初星学園）偶像科的花海咲季（はなみ さき），16 岁，高中一年级，1年1班，以入学考试第一名的成绩入学。"
+voice_id = ""
+sheet = "sheets/saki.md"
+facts = "sheets/saki.md"
+color = "#8795a8"
+birthday = "04-02"
+age = 16
+cycles_enabled = true
+speakers = ["花海咲季", "咲季"]
+liked_gifts = ["bouquet"]
+bar_flavors = ["sweet"]
+bar_favorites = ["blue-fairy"]
+bar_tolerance = "weak"
+name_kana = "はなみ さき"
+
+[[characters]]
+id = "temari"
+name = "月村手毬"
+short_name = "手毬"
+name_zh = "月村手毬"
+intro = "《学园偶像大师》中初星学园（初星学園）偶像科的月村手毬（つきむら てまり），15 岁，高等部一年级 1 班，京都出身。"
+voice_id = ""
+sheet = "sheets/temari.md"
+facts = "sheets/temari.md"
+color = "#8795a8"
+birthday = "06-03"
+age = 15
+cycles_enabled = true
+speakers = ["月村手毬", "手毬"]
+liked_gifts = ["bouquet"]
+bar_flavors = ["sweet"]
+bar_favorites = ["blue-fairy"]
+bar_tolerance = "weak"
+name_kana = "つきむら てまり"
+
+[[characters]]
+id = "kotone"
+name = "藤田琴音"
+short_name = "琴音"
+name_zh = "藤田琴音"
+intro = "《学园偶像大师》中初星学园（初星学園）偶像科的藤田琴音（ふじた ことね），15 岁，从中等部直升上来的高等部一年级生，1年1班，和花海咲季、月村手毬同班。"
+voice_id = ""
+sheet = "sheets/kotone.md"
+facts = "sheets/kotone.md"
+color = "#8795a8"
+birthday = "04-29"
+age = 15
+cycles_enabled = true
+speakers = ["藤田琴音", "琴音"]
+liked_gifts = ["bouquet"]
+bar_flavors = ["sweet"]
+bar_favorites = ["blue-fairy"]
+bar_tolerance = "weak"
+name_kana = "ふじた ことね"
+
+[[characters]]
+id = "mao"
+name = "有村麻央"
+short_name = "麻央"
+name_zh = "有村麻央"
+intro = "《学园偶像大师》中初星学园（初星學園）偶像科的有村麻央（ありむら まお），三年级，3年1班，兵库县出身的关西人，独生女，同时担任女生宿舍的宿舍长（舍长）。"
+voice_id = ""
+sheet = "sheets/mao.md"
+facts = "sheets/mao.md"
+color = "#8795a8"
+birthday = "01-18"
+age = "unknown"
+cycles_enabled = false
+speakers = ["有村麻央", "麻央"]
+liked_gifts = ["bouquet"]
+bar_flavors = ["sweet"]
+bar_favorites = ["blue-fairy"]
+bar_tolerance = "weak"
+name_kana = "ありむら まお"
+
+[[characters]]
+id = "lilja"
+name = "葛城莉莉娅"
+short_name = "莉莉娅"
+name_zh = "葛城莉莉娅"
+intro = "《学园偶像大师》中初星学园（初星学園）偶像科一年级的葛城莉莉娅（かつらぎ りりや），15 岁，1 年 1 班，和花海咲季、紫云清夏、月村手毬、藤田琴音同班。"
+voice_id = ""
+sheet = "sheets/lilja.md"
+facts = "sheets/lilja.md"
+color = "#8795a8"
+birthday = "07-24"
+age = 15
+cycles_enabled = true
+speakers = ["葛城莉莉娅", "莉莉娅"]
+liked_gifts = ["bouquet"]
+bar_flavors = ["sweet"]
+bar_favorites = ["blue-fairy"]
+bar_tolerance = "weak"
+name_kana = "かつらぎ りりや"
+
+[[characters]]
+id = "china"
+name = "仓本千奈"
+short_name = "千奈"
+name_zh = "仓本千奈"
+intro = "《学园偶像大师》中初星学园（初星学園）偶像科的仓本千奈（くらもと ちな），15 岁，高中部一年级 2 班（「初星学园一年级2班，/仓本千奈哇！」），是本邦首屈一指的大财阀「仓本集团」会长的孙女，人称「大小姐」。"
+voice_id = ""
+sheet = "sheets/china.md"
+facts = "sheets/china.md"
+color = "#8795a8"
+birthday = "08-01"
+age = 15
+cycles_enabled = true
+speakers = ["仓本千奈", "千奈"]
+liked_gifts = ["bouquet"]
+bar_flavors = ["sweet"]
+bar_favorites = ["blue-fairy"]
+bar_tolerance = "weak"
+name_kana = "くらもと ちな"
+
+[[characters]]
+id = "sumika"
+name = "紫云清夏"
+short_name = "清夏"
+name_zh = "紫云清夏"
+intro = "《学园偶像大师》中初星学园（初星学園）偶像科的紫云清夏（しうん すみか），15 岁，一年级 1 班，北海道出身，自己也承认「姑且能算是个大小姐」。"
+voice_id = ""
+sheet = "sheets/sumika.md"
+facts = "sheets/sumika.md"
+color = "#8795a8"
+birthday = "11-11"
+age = 15
+cycles_enabled = true
+speakers = ["紫云清夏", "清夏"]
+liked_gifts = ["bouquet"]
+bar_flavors = ["sweet"]
+bar_favorites = ["blue-fairy"]
+bar_tolerance = "weak"
+name_kana = "しうん すみか"
+
+[[characters]]
+id = "hiro"
+name = "篠泽广"
+short_name = "广"
+name_zh = "篠泽广"
+intro = "《学园偶像大师》中初星学园（初星学園）偶像科一年级的篠泽广（しのさわ ひろ；剧情汉化里多写作「筱泽广」），15 岁，1年2班——同班有仓本千奈、花海佑芽、秦谷美铃。"
+voice_id = ""
+sheet = "sheets/hiro.md"
+facts = "sheets/hiro.md"
+color = "#8795a8"
+birthday = "12-21"
+age = 15
+cycles_enabled = true
+speakers = ["篠泽广", "广"]
+liked_gifts = ["bouquet"]
+bar_flavors = ["sweet"]
+bar_favorites = ["blue-fairy"]
+bar_tolerance = "weak"
+name_kana = "しのさわ ひろ"
+
+[[characters]]
+id = "rinami"
+name = "姬崎莉波"
+short_name = "莉波"
+name_zh = "姬崎莉波"
+intro = "《学园偶像大师》中初星学园（初星学園）偶像科的姬崎莉波（ひめさき りなみ），三年级生，3年1班，学生会书记，住在学园宿舍。"
+voice_id = ""
+sheet = "sheets/rinami.md"
+facts = "sheets/rinami.md"
+color = "#8795a8"
+birthday = "03-05"
+age = "unknown"
+cycles_enabled = false
+speakers = ["姬崎莉波", "莉波"]
+liked_gifts = ["bouquet"]
+bar_flavors = ["sweet"]
+bar_favorites = ["blue-fairy"]
+bar_tolerance = "weak"
+name_kana = "ひめさき りなみ"
+
+[[characters]]
+id = "ume"
+name = "花海佑芽"
+short_name = "佑芽"
+name_zh = "花海佑芽"
+intro = "《学园偶像大师》中初星学园（初星学園）偶像科的一年级生花海佑芽（はなみ うめ），15 岁，1 年 2 班，爱知县出身，前田径运动员，学生会成员。"
+voice_id = ""
+sheet = "sheets/ume.md"
+facts = "sheets/ume.md"
+color = "#8795a8"
+birthday = "04-01"
+age = 15
+cycles_enabled = true
+speakers = ["花海佑芽", "佑芽"]
+liked_gifts = ["bouquet"]
+bar_flavors = ["sweet"]
+bar_favorites = ["blue-fairy"]
+bar_tolerance = "weak"
+name_kana = "はなみ うめ"
+
+[[characters]]
+id = "sena"
+name = "十王星南"
+short_name = "星南"
+name_zh = "十王星南"
+intro = "《学园偶像大师》中初星学园（初星学園）偶像科三年级的十王星南（じゅうおう せな），学生会会长，被全校称为『启明星』（一番星）的学园第一偶像——你在『H.I.F』（Hatsuboshi IDOL FESTIVAL）个人赛连续夺冠，是所有学生憧憬的目标。"
+voice_id = ""
+sheet = "sheets/sena.md"
+facts = "sheets/sena.md"
+color = "#8795a8"
+birthday = "12-07"
+age = "unknown"
+cycles_enabled = false
+speakers = ["十王星南", "星南"]
+liked_gifts = ["bouquet"]
+bar_flavors = ["sweet"]
+bar_favorites = ["blue-fairy"]
+bar_tolerance = "weak"
+name_kana = "じゅうおう せな"
+
+[[characters]]
+id = "misuzu"
+name = "秦谷美铃"
+short_name = "美铃"
+name_zh = "秦谷美铃"
+intro = "《学园偶像大师》中初星学园（初星学園）偶像科的秦谷美铃（はたや みすず），15 岁，高中部一年级 1年2班，从初中部内部升学上来，学生会成员，负责会计监察（「我是1年2班的秦谷美铃。"
+voice_id = ""
+sheet = "sheets/misuzu.md"
+facts = "sheets/misuzu.md"
+color = "#8795a8"
+birthday = "unknown"
+age = 15
+cycles_enabled = true
+speakers = ["秦谷美铃", "美铃"]
+liked_gifts = ["bouquet"]
+bar_flavors = ["sweet"]
+bar_favorites = ["blue-fairy"]
+bar_tolerance = "weak"
+name_kana = "はたや みすず"
+
+[[characters]]
+id = "tsubame"
+name = "雨夜燕"
+short_name = "燕"
+name_zh = "雨夜燕"
+intro = "《学园偶像大师》中初星学园（初星学園）偶像科高中部三年级（3年1班）的雨夜燕（あまや つばめ），学生会副会长，被称作「学园No.2」的实力派偶像。"
+voice_id = ""
+sheet = "sheets/tsubame.md"
+facts = "sheets/tsubame.md"
+color = "#8795a8"
+birthday = "11-11"
+age = "unknown"
+cycles_enabled = false
+speakers = ["雨夜燕", "燕"]
+liked_gifts = ["bouquet"]
+bar_flavors = ["sweet"]
+bar_favorites = ["blue-fairy"]
+bar_tolerance = "weak"
+name_kana = "あまや つばめ"
+
+[[characters]]
+id = "rinha"
+name = "贺阳燐羽"
+short_name = "燐羽"
+name_zh = "贺阳燐羽"
+intro = "《学园偶像大师》中的贺阳燐羽（かや りんは），高中一年级。"
+voice_id = ""
+sheet = "sheets/rinha.md"
+facts = "sheets/rinha.md"
+color = "#8795a8"
+birthday = "unknown"
+age = "unknown"
+cycles_enabled = false
+speakers = ["贺阳燐羽", "燐羽"]
+liked_gifts = ["bouquet"]
+bar_flavors = ["sweet"]
+bar_favorites = ["blue-fairy"]
+bar_tolerance = "weak"
+name_kana = "かや りんは"
+
+[[characters]]
+id = "shion"
+name = "白草四音"
+short_name = "四音"
+name_zh = "白草四音"
+intro = "《学园偶像大师》中极月学园（极月学園）的偶像白草四音（しらくさ しおん），高中一年级，所属 961Pro。"
+voice_id = ""
+sheet = "sheets/shion.md"
+facts = "sheets/shion.md"
+color = "#8795a8"
+birthday = "unknown"
+age = 16
+cycles_enabled = true
+speakers = ["白草四音", "四音"]
+liked_gifts = ["bouquet"]
+bar_flavors = ["sweet"]
+bar_favorites = ["blue-fairy"]
+bar_tolerance = "weak"
+name_kana = "しらくさ しおん"
+
+[[characters]]
+id = "gekka"
+name = "白草月花"
+short_name = "月花"
+name_zh = "白草月花"
+intro = "《学园偶像大师》中极月学园（极月学園）的顶级偶像白草月花（しらくさ つきか），高中三年级，所属 961Pro，平时以美国（纽约）为据点活动，是「著名的帅气系偶像」。"
+voice_id = ""
+sheet = "sheets/gekka.md"
+facts = "sheets/gekka.md"
+color = "#8795a8"
+birthday = "unknown"
+age = 18
+cycles_enabled = true
+speakers = ["白草月花", "月花"]
+liked_gifts = ["bouquet"]
+bar_flavors = ["sweet"]
+bar_favorites = ["blue-fairy"]
+bar_tolerance = "weak"
+name_kana = "しらくさ つきか"
+
+[[characters]]
+id = "nadeshiko"
+name = "蓝井抚子"
+short_name = "抚子"
+name_zh = "蓝井抚子"
+intro = "《学园偶像大师》中极月学园（极月学園）的偶像蓝井抚子（あおい なでしこ），高中一年级，所属 961Pro，蓝井家的大小姐。"
+voice_id = ""
+sheet = "sheets/nadeshiko.md"
+facts = "sheets/nadeshiko.md"
+color = "#8795a8"
+birthday = "unknown"
+age = 16
+cycles_enabled = true
+speakers = ["蓝井抚子", "抚子"]
+liked_gifts = ["bouquet"]
+bar_flavors = ["sweet"]
+bar_favorites = ["blue-fairy"]
+bar_tolerance = "weak"
+name_kana = "あおい なでしこ"
+
+[[characters]]
+id = "asari"
+name = "根绪亚纱里"
+short_name = "亚纱里"
+name_zh = "根绪亚纱里"
+intro = "《学园偶像大师》中初星学园（初星学園）制作人科的老师根绪亚纱里（ねお あさり），大家都叫你「亚纱里老师」。"
+voice_id = ""
+sheet = "sheets/asari.md"
+facts = "sheets/asari.md"
+color = "#8795a8"
+birthday = "unknown"
+age = "unknown"
+cycles_enabled = false
+speakers = ["根绪亚纱里", "亚纱里"]
+liked_gifts = ["bouquet"]
+bar_flavors = ["sweet"]
+bar_favorites = ["blue-fairy"]
+bar_tolerance = "weak"
+name_kana = "ねお あさり"
+
+[[characters]]
+id = "kanae"
+name = "冰渡香名江"
+short_name = "香名江"
+name_zh = "冰渡香名江"
+intro = "《学园偶像大师》中仓本家的侍从（女仆）冰渡香名江（ひわたり かなえ），一直在身边照顾仓本家的大小姐仓本千奈。"
+voice_id = ""
+sheet = "sheets/kanae.md"
+facts = "sheets/kanae.md"
+color = "#8795a8"
+birthday = "unknown"
+age = 15
+cycles_enabled = false
+speakers = ["冰渡香名江", "香名江"]
+liked_gifts = ["bouquet"]
+bar_flavors = ["sweet"]
+bar_favorites = ["blue-fairy"]
+bar_tolerance = "weak"
+name_kana = "ひわたり かなえ"
+
+[[characters]]
+id = "kunio"
+name = "十王邦夫"
+short_name = "邦夫"
+name_zh = "十王邦夫"
+intro = "《学园偶像大师》中初星学园（初星学園）的学园长十王邦夫（じゅうおう くにお）。"
+voice_id = ""
+sheet = "sheets/kunio.md"
+facts = "sheets/kunio.md"
+color = "#8795a8"
+birthday = "unknown"
+age = "unknown"
+cycles_enabled = false
+speakers = ["十王邦夫", "邦夫"]
+liked_gifts = ["bouquet"]
+bar_flavors = ["sweet"]
+bar_favorites = ["blue-fairy"]
+bar_tolerance = "weak"
+name_kana = "じゅうおう くにお"
+
+[[characters]]
+id = "ryusho"
+name = "十王龙正"
+short_name = "龙正"
+name_zh = "十王龙正"
+intro = "《学园偶像大师》中大型偶像事务所 100Pro（100Production）的社长十王龙正（じゅうおう りゅうせい），大家叫你「十王社长」。"
+voice_id = ""
+sheet = "sheets/ryusho.md"
+facts = "sheets/ryusho.md"
+color = "#8795a8"
+birthday = "unknown"
+age = "unknown"
+cycles_enabled = false
+speakers = ["十王龙正", "龙正"]
+liked_gifts = ["bouquet"]
+bar_flavors = ["sweet"]
+bar_favorites = ["blue-fairy"]
+bar_tolerance = "weak"
+name_kana = "じゅうおう りゅうせい"
+
+[[characters]]
+id = "tsugu"
+name = "贺阳继"
+short_name = "继"
+name_zh = "贺阳继"
+intro = "《学园偶像大师》中贺阳燐羽的姐姐贺阳继（读音原作未注明），曾经的初星学园（初星学園）偶像，拿到过学园第一的称号『启明星』（一番星），现在已经退出了偶像界。"
+voice_id = ""
+sheet = "sheets/tsugu.md"
+facts = "sheets/tsugu.md"
+color = "#8795a8"
+birthday = "unknown"
+age = "unknown"
+cycles_enabled = false
+speakers = ["贺阳继", "继"]
+liked_gifts = ["bouquet"]
+bar_flavors = ["sweet"]
+bar_favorites = ["blue-fairy"]
+bar_tolerance = "weak"
+
+[[characters]]
+id = "shiri"
+name = "姬崎汐莉"
+short_name = "汐莉"
+name_zh = "姬崎汐莉"
+intro = "《学园偶像大师》中初星学园（初星学園）偶像姬崎莉波的亲妹妹姬崎汐莉，小学生，和爸爸妈妈住在福冈老家。"
+voice_id = ""
+sheet = "sheets/shiri.md"
+facts = "sheets/shiri.md"
+color = "#8795a8"
+birthday = "unknown"
+age = "unknown"
+cycles_enabled = false
+speakers = ["姬崎汐莉", "汐莉"]
+liked_gifts = ["bouquet"]
+bar_flavors = ["sweet"]
+bar_favorites = ["blue-fairy"]
+bar_tolerance = "weak"
+
+[[characters]]
+id = "kuroi"
+name = "黑井崇男"
+short_name = "崇男"
+name_zh = "黑井崇男"
+intro = "《学园偶像大师》中 961 事务所（961Pro）的社长黑井崇男（くろい たかお），同时是极月学园的理事长。"
+voice_id = ""
+sheet = "sheets/kuroi.md"
+facts = "sheets/kuroi.md"
+color = "#8795a8"
+birthday = "unknown"
+age = "unknown"
+cycles_enabled = false
+speakers = ["黑井崇男", "崇男"]
+liked_gifts = ["bouquet"]
+bar_flavors = ["sweet"]
+bar_favorites = ["blue-fairy"]
+bar_tolerance = "weak"
+name_kana = "くろい たかお"

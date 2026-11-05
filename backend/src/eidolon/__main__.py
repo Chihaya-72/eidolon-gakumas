@@ -1093,6 +1093,22 @@ async def _eval_moments(args: argparse.Namespace) -> int:
     return 0
 
 
+async def _disable_access(db: Database, _: argparse.Namespace) -> None:
+    from eidolon.access import AccessGate
+    from eidolon.clock import utc_now
+
+    await AccessGate(db, utc_now).disable()
+    print("网站访问密码已关闭")
+
+
+async def _unban_access(db: Database, args: argparse.Namespace) -> None:
+    from eidolon.access import AccessGate
+    from eidolon.clock import utc_now
+
+    await AccessGate(db, utc_now).unban(args.ban_id)
+    print("访问封禁已解除")
+
+
 async def _list_users(db: Database, _: argparse.Namespace) -> None:
     store = Store(db)
     users = await store.list_users()
@@ -1148,6 +1164,13 @@ def _parser() -> argparse.ArgumentParser:
     )
     doctor.add_argument("--json", action="store_true", help="结果输出成 JSON，给 Agent 读")
 
+    access = commands.add_parser("access", help="恢复网站密码访问").add_subparsers(
+        dest="action", required=True,
+    )
+    access.add_parser("disable", help="关闭网站访问密码").set_defaults(run=_disable_access)
+    access_unban = access.add_parser("unban", help="解除访问封禁（省略编号则全部解除）")
+    access_unban.add_argument("ban_id", nargs="?")
+    access_unban.set_defaults(run=_unban_access)
     user = commands.add_parser("user", help="管理用户").add_subparsers(
         dest="action", required=True, metavar="操作"
     )

@@ -111,11 +111,16 @@ async def test_the_calls_at_once_saved_hold_from_the_next_call(
     saved = await client.put(LIMITS, json=ENV_LIMITS | {"concurrent_calls": 1})
     async with another_user(client, "hazuki") as other:
         theirs = await start_conversation(other)
-        refused = await other.get("/api/ice-servers", params={"conversation": theirs})
+        # Shared calls can queue even while capacity is full. Fully self-funded calls
+        # bypass that queue and must still obey the administrator's current hard cap.
+        queued = await other.get("/api/ice-servers", params={"conversation": theirs})
+        own = {"conversation": theirs, "own": "llm,stt,tts"}
+        refused = await other.get("/api/ice-servers", params=own)
         await client.put(LIMITS, json=ENV_LIMITS | {"concurrent_calls": 0})
-        unlimited = await other.get("/api/ice-servers", params={"conversation": theirs})
+        unlimited = await other.get("/api/ice-servers", params=own)
 
     assert saved.status_code == 200, saved.text
+    assert queued.status_code == 200
     assert refused.status_code == 503
     assert unlimited.status_code == 200
 

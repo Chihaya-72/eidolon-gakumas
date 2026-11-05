@@ -247,6 +247,18 @@ function message(
 const history = [message(1, "user", "早上好"), message(2, "character", "おはよう")];
 
 describe("LiveConversation: a call", () => {
+  it("aborts the pending queue reservation immediately when a dialing call is hung up", async () => {
+    const { live, attempts } = await conversation();
+    const calling = live.startCall();
+    const { signal } = attempts[0].handlers;
+    expect(signal?.aborted).toBe(false);
+    await live.hangUp();
+    expect(signal?.aborted).toBe(true);
+    attempts[0].fail(new Error("已取消排队"));
+    await calling;
+    expect(live.snapshot().call.phase).toBe("idle");
+  });
+
   it("dials, then counts from when it connects, with the backend's time limit", async () => {
     const { live, attempts } = await conversation();
     const calling = live.startCall();

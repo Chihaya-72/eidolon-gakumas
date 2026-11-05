@@ -1,5 +1,7 @@
 <div align="center">
 
+当前本地版本默认使用《学园偶像大师》24 位角色的人设。配置与音色说明见 [角色包说明](characters/gakumas/README.md)。
+
 <img src="docs/images/landing.webp" alt="Eidolon-SC：和 283 事务所的偶像说说话" width="100%">
 
 **和《偶像大师 闪耀色彩》的偶像实时对话的 AI 分身**
@@ -258,7 +260,7 @@ docker compose -f docker-compose.prod.yml up -d
 cd backend
 uv sync
 uv run pytest && uv run pyright && uv run ruff check
-uv run --env-file=../.env eidolon serve   # 启动在 :8000，读取 ../characters/characters.toml
+uv run --env-file=../.env eidolon serve   # 启动在 :8000，读取 ../characters/gakumas/characters.toml
 ```
 
 **前端**（Next.js 16 + [shadcn/ui](https://ui.shadcn.com/) + Tailwind CSS v4，`frontend/`）：

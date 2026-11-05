@@ -31,7 +31,9 @@ from dataclasses import dataclass, field
 
 import httpx
 
-from eidolon.accounts import Accounts
+from eidolon.accounts import Accounts, is_admin
+from eidolon.access import AccessGate
+from eidolon.service_queue import ServiceQueue
 from eidolon.invites import Invites
 from eidolon.activity import ActivityLog, metered_retrieval
 from eidolon.admission import Admissions
@@ -120,6 +122,8 @@ class Backend:
     database: Database
     """The database, as the modules moved onto the data access layer read and write it."""
     store: Store
+    access: AccessGate
+    queue: ServiceQueue
     characters: dict[str, Character]
     gift_catalog: dict[str, Gift]
     """The gift catalog, by identifier."""
@@ -234,6 +238,7 @@ class Backend:
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
+        await self.queue.aclose()
         for close in reversed(self._closers):
             result = close()
             if result is not None:
@@ -294,6 +299,15 @@ def build(
     closers: list[Closer] = [database.close]
 
     store = Store(database)
+    access = AccessGate(database, clock, settings.secret_key)
+
+    async def queue_admin(user_id: str) -> bool:
+        return await is_admin(store, settings, user_id)
+
+    async def queue_active(user_id: str) -> bool:
+        return user_id in await store.active_users({user_id})
+
+    queue = ServiceQueue(database, clock, queue_admin, queue_active)
     if identity_providers is None:
         identity_providers = open_identity_providers(settings.github, settings.google)
         closers.extend(p.aclose for p in identity_providers.values())
@@ -436,7 +450,7 @@ def build(
     closers.append(own_images.aclose)
     photos = Photos(
         store, config.image_generator, activity, usage, own_images.generator,
-        config.gpt_image_generator,
+        config.gpt_image_generator, queue=queue,
     )
     closers.append(photos.aclose)  # closed before the database, so no photo is still kept
     cycles = Cycles(database, characters, settings.secret_key, lambda: config.cycles_on)
@@ -448,7 +462,7 @@ def build(
         own_llm_service, config, activity, speech, exempting=lambda: config.exempting_keys,
         image_service=own_images,
     )
-    read_aloud = ReadAloud(own_keys, usage, activity, readings, routes, fish_transport)
+    read_aloud = ReadAloud(own_keys, usage, activity, readings, routes, fish_transport, queue=queue)
     letters = Letters(
         database, characters, config, affinities, activity, read_aloud, clock,
         letter_music, settings.stand_assets_url,
@@ -473,7 +487,7 @@ def build(
         happenings,
     )
     admissions = Admissions(
-        usage, activity, own_keys, cooldown_until=affinities.cooldown_until
+        usage, activity, own_keys, cooldown_until=affinities.cooldown_until, queue=queue,
     )
     closers.append(admissions.aclose)  # closed after the calls, which may leave some to settle
     # The bar looks in her facts with the text turns' own, if they have them, needing no
@@ -486,7 +500,7 @@ def build(
     bar = Bar(
         database, clock, characters, drink_catalog, bar_visits, bar_lines, admissions,
         lambda: config.bar_on, random or secure_random, her_now, world=world,
-        affinities=affinities, gifts=gifts, facts=bar_facts,
+        affinities=affinities, gifts=gifts, facts=bar_facts, queue=queue,
     )
     closers.append(bar.aclose)  # closed before the database, so each visit over is recorded
     calls = Calls(
@@ -509,6 +523,8 @@ def build(
         settings=settings,
         database=database,
         store=store,
+        access=access,
+        queue=queue,
         characters=characters,
         gift_catalog=gift_catalog,
         bar=bar,

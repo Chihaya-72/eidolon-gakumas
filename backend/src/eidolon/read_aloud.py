@@ -22,6 +22,7 @@ Fish Audio was given as a call's speech synthesis is (`call.CallMeter`); it has 
 record of its own. Fish Audio failing on the user's own key says why, the key masked
 (`OwnKeyFailed`); on the deployer's, only that it failed (`ReadAloudFailed`)."""
 
+import asyncio
 import logging
 from collections.abc import Sequence
 
@@ -42,6 +43,7 @@ from eidolon.own_keys import (
 from eidolon.proxy import ProxyRoutes
 from eidolon.readings import Reading, pronunciation_dictionary
 from eidolon.reply_format import Segment
+from eidolon.service_queue import Lease, ServiceQueue
 from eidolon.usage import UsageLimiter
 
 log = logging.getLogger(__name__)
@@ -94,6 +96,8 @@ class ReadAloud:
         readings: Sequence[Reading] = (),
         routes: ProxyRoutes | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
+        *,
+        queue: ServiceQueue | None = None,
     ) -> None:
         self._own_keys = own_keys
         self._usage = usage
@@ -101,6 +105,7 @@ class ReadAloud:
         self._dictionary = pronunciation_dictionary(readings)
         self._routes = routes
         self._transport = transport
+        self._queue = queue
 
     async def voice(
         self, user_id: str, voice_id: str, segments: Sequence[Segment], brought: BroughtKeys
@@ -111,16 +116,24 @@ class ReadAloud:
         OwnKeyFailed or ReadAloudFailed, giving the read-aloud back, if Fish Audio fails."""
         if not voice_id.strip():
             raise NoVoice()
-        keys = self._own_keys.for_read_aloud(brought)
+        lease = (
+            await self._queue.acquire(user_id, "read_aloud", bypass=brought.tts is not None)
+            if self._queue is not None else Lease()
+        )
         try:
-            use = await self._usage.take(user_id, "read_aloud", exempt=keys.own)
+            keys = self._own_keys.for_read_aloud(brought)
             try:
-                return await self._voice(keys, voice_id, fish_text(segments, keys.tts_model))
-            except Exception:
-                await use.give_back()
-                raise
+                use = await self._usage.take(user_id, "read_aloud", exempt=keys.own)
+                try:
+                    await lease.start()
+                    return await self._voice(keys, voice_id, fish_text(segments, keys.tts_model))
+                except BaseException:
+                    await use.give_back()
+                    raise
+            finally:
+                keys.release()
         finally:
-            keys.release()
+            await asyncio.shield(lease.release())
 
     async def said_on_deployers(
         self, tts: str, model: FishAudioModel, voice_id: str, ja: str

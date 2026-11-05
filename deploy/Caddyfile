@@ -16,5 +16,7 @@
 			header Content-Type application/json*
 		}
 	}
-	reverse_proxy 127.0.0.1:3000
+	reverse_proxy 127.0.0.1:3000 {
+		header_up X-Eidolon-Client-IP {remote_host}
+	}
 }

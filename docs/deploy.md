@@ -419,7 +419,7 @@ uv run --env-file=../.env eidolon greeting upload
 
 - 存储桶：和立绘同一个，`EIDOLON_STAND_S3_*`（见「同步素材」）。密钥除了上传还要能删除对象：命令要删掉旧版本，下线时也要清空存储桶。只能上传的密钥（例如腾讯云 COS 的预设策略 QcloudCOSDataWriteOnly 不含删除）会让命令在删旧版本时失败、以退出码 3 结束；腾讯云 COS 给密钥所属的子用户加一条只允许 `name/cos:DeleteObject`、资源是这个存储桶的自定义策略即可。
 - 语音合成：`.env` 的 `FISH_AUDIO_API_KEY` 和 `FISH_AUDIO_MODEL`，也就是部署者的 key。命令只读 `.env`，后台里改过的语音合成设置对它不起作用。默认模型 `s2.1-pro-free` 不消耗 API 额度。只换模型不会重新合成：地址只跟台词、音色和读音有关，已经上传过的招呼原样留着；想用新模型重念，先删掉存储桶里那几个 mp3 再运行。
-- 角色配置：默认是 `../characters/characters.toml`（相对于 `backend/`），可以用 `--characters` 或 `EIDOLON_CHARACTERS_PATH` 指定。读音文件取它旁边的 `readings.toml`。
+- 角色配置：默认是 `../characters/gakumas/characters.toml`（相对于 `backend/`），包含《学园偶像大师》的 24 位可对话角色。可以用 `--characters` 或 `EIDOLON_CHARACTERS_PATH` 指定；容器内默认是 `/characters/gakumas/characters.toml`。读音文件取它旁边的 `readings.toml`。这套人设的来源、更新方式和音色状态见 `characters/gakumas/README.md`。
 
 它做的事：
 
@@ -874,3 +874,8 @@ EIDOLON_BACKUP_WARN_GB=3      # 存储桶里备份的总量超过它就提醒，
 - **管理者打开 `/admin` 得到 404，设置页也没有「进入后台」**：`EIDOLON_ADMINS` 里的标识要和 `eidolon user list` 括号里的完全一样（`github:` 或 `google:` 加数字，不是邮箱），改完要 `docker compose -f docker-compose.prod.yml up -d` 重建后端，只 `restart` 读不到新的 `.env`。
 - **改了 `.env` 却没生效**：这一项可能被后台覆盖了，见「后台和 `.env` 的关系」。
 - **只放行 443 端口的网络里语音连不上**：目前的已知限制。TURN 走 443 需要和 Caddy 分用这个端口，还没有做。
+
+
+## 密码访问与管理员初始化
+
+首位注册用户自动成为管理员，已有数据库首次升级时授予最早用户管理员身份。网站密码、IP／浏览器封禁、服务排队和恢复命令见[管理员、密码访问与服务排队](admin-access-queue.md)。升级生产环境时同时更新 Caddyfile 并重载 Caddy，使客户端 IP 传递生效。

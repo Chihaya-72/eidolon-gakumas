@@ -133,7 +133,7 @@ def add_admin_user_routes(app: FastAPI, backend: Backend) -> None:
             "created_at": user.created_at,
             "last_active_at": last_active.isoformat() if last_active else None,
             "banned": user.banned_at is not None,
-            "is_admin": signs_in_as_admin(methods, settings),
+            "is_admin": bool(user.is_admin) or signs_in_as_admin(methods, settings),
             "limits": own_limits,
             "usage_24h": {"turns": taken.get("turn", 0), "calls": taken.get("call", 0)},
         }

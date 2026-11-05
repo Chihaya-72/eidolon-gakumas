@@ -241,7 +241,7 @@ docker compose -f docker-compose.prod.yml up -d
 cd backend
 uv sync
 uv run pytest && uv run pyright && uv run ruff check
-uv run --env-file=../.env eidolon serve   # serves on :8000, reads ../characters/characters.toml
+uv run --env-file=../.env eidolon serve   # serves on :8000, reads ../characters/gakumas/characters.toml
 ```
 
 **Frontend** (Next.js 16 + [shadcn/ui](https://ui.shadcn.com/) + Tailwind CSS v4, `frontend/`):

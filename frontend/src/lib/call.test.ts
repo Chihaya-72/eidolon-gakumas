@@ -4,6 +4,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startCall } from "@/lib/call";
+import { Microphone } from "@/lib/microphone";
 import type { CallPreferences } from "@/lib/callPreferences";
 import { keepOwnKey } from "@/lib/localOwnKeys";
 
@@ -28,7 +29,7 @@ vi.mock("@pipecat-ai/small-webrtc-transport", () => ({ SmallWebRTCTransport: cla
 
 vi.mock("@/lib/microphone", () => ({
   Microphone: {
-    open: async () => ({ inUse: { id: "", fellBack: false }, disconnect: async () => {}, enableMic() {} }),
+    open: vi.fn(async () => ({ inUse: { id: "", fellBack: false }, disconnect: async () => {}, enableMic() {} })),
   },
 }));
 
@@ -53,6 +54,7 @@ const HANDLERS = {
 
 beforeEach(() => {
   offers.length = 0;
+  vi.mocked(Microphone.open).mockClear();
   const items = new Map<string, string>();
   vi.stubGlobal("localStorage", {
     getItem: (key: string) => items.get(key) ?? null,
@@ -66,7 +68,7 @@ beforeEach(() => {
   );
 });
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe("startCall", () => {
   it("brings the user's own keys with the offer, and no longer once the call has connected", async () => {
@@ -83,4 +85,27 @@ describe("startCall", () => {
     expect(requestData).not.toHaveProperty("own_keys");
     expect(requestData).toMatchObject({ conversation_id: "c1" });
   });
+});
+
+
+it("does not open the microphone or send an offer while queued, including after cancellation", async () => {
+  vi.useFakeTimers();
+  vi.stubGlobal("window", { location: { pathname: "/conversation/c1", assign: vi.fn() }, addEventListener: vi.fn(), removeEventListener: vi.fn() });
+  const fetch = vi.fn(async (path: string, init?: RequestInit) => {
+    if (path.startsWith("/api/ice-servers")) return Response.json({ iceServers: [], maxCallSeconds: null, callExempt: false });
+    if (init?.method === "DELETE") return new Response(null, { status: 204 });
+    return Response.json({ id: "waiting-call", state: "waiting", position: 2, expires_in: 60 });
+  });
+  vi.stubGlobal("fetch", fetch);
+  const abort = new AbortController();
+  const started = startCall("c1", PREFERENCES, { ...HANDLERS, signal: abort.signal }, "u1").catch((e: Error) => e);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(Microphone.open).not.toHaveBeenCalled();
+  expect(offers).toHaveLength(0);
+  abort.abort();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(await started).toMatchObject({ message: "已取消排队" });
+  expect(Microphone.open).not.toHaveBeenCalled();
+  expect(offers).toHaveLength(0);
+  expect(fetch.mock.calls.some(([path, init]) => path === "/api/queue/waiting-call" && init?.method === "DELETE")).toBe(true);
 });

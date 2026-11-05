@@ -16,7 +16,7 @@ import {
   todayIn,
 } from "@/lib/calendar";
 
-type Idol = { id: string; name: string; birthday: string };
+type Idol = { id: string; name: string; birthday: string | null };
 
 const MANO: Idol = { id: "mano", name: "櫻木真乃", birthday: "04-25" };
 const MADOKA: Idol = { id: "madoka", name: "樋口円香", birthday: "10-27" };
@@ -52,6 +52,14 @@ const word = (e: CalendarEvent<Idol>) =>
 const on = (date: string, d = data(), shown: CalendarKind[] = ALL) => eventsOn(date, d, shown).map(word);
 
 describe("某一天的事", () => {
+  it("生日未公开的角色不产生生日事件，也不会影响已知生日", () => {
+    const unknown: Idol = { id: "shiri", name: "姬崎汐莉", birthday: null };
+    const d = data({ characters: [unknown, MANO] });
+    expect(on("2026-04-25", d, ["character"])).toEqual(["mano"]);
+    expect(on("2026-01-01", d, ["character"])).toEqual([]);
+    expect(nextEvent("2026-01-01", d, ["character"])?.date).toBe("2026-04-25");
+  });
+
   it("没事的日子什么都没有", () => {
     expect(on("2026-10-26")).toEqual([]);
   });

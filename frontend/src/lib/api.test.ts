@@ -18,6 +18,12 @@ import {
 } from "@/lib/api";
 import { keepOwnKey, localOwnKeys } from "@/lib/localOwnKeys";
 
+// These tests exercise API payloads and SSE framing; queue state has its own contract tests.
+vi.mock("@/lib/serviceQueue", async (original) => ({
+  ...await original<typeof import("@/lib/serviceQueue")>(),
+  waitForService: vi.fn(async () => ({ ticket: null, cancelUnused: async () => {} })),
+}));
+
 describe("redirectFor", () => {
   it("sends a browser that is not signed in to the landing page, to sign in there", () => {
     expect(redirectFor(401)).toBe("/");

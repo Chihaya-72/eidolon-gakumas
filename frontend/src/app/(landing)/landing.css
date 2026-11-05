@@ -42,7 +42,7 @@ html.lenis body {
 .lp-root {
   --lp-rail: 72px;
   --lp-gutter: calc(var(--lp-rail) + 6vw);
-  --lp-ja: var(--lp-font-ja-act0), var(--lp-font-ja), "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif CJK JP", serif;
+  --lp-ja: var(--lp-font-ja-act0), var(--lp-font-ja), var(--lp-font-zh-title-act0), var(--lp-font-zh-title), "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif CJK JP", serif;
   --lp-zh: var(--font-zh), system-ui, sans-serif;
   --lp-zh-title: var(--lp-font-zh-title-act0), var(--lp-font-zh-title), "Songti SC", "SimSun", "Noto Serif CJK SC", serif;
   --lp-ink: #eeecf2;

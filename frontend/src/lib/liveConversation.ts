@@ -329,6 +329,7 @@ export class LiveConversation {
   /** The dialing of the call under way; null once that call is over, however it ended, or
    * the page is left (see `startCall`). */
   private attempt: object | null = null;
+  private dialingAbort: AbortController | null = null;
   private endedBy: CallEnd | null = null; // why the backend is hanging up
   /** Lets a call held for the ringback (see `startCall`) through at once, its dialing being
    * over; null while none is held. */
@@ -392,6 +393,8 @@ export class LiveConversation {
     if (this.thawing !== null) clearTimeout(this.thawing);
     if (this.polling !== null) clearTimeout(this.polling);
     this.attempt = null;
+    this.dialingAbort?.abort();
+    this.dialingAbort = null;
     this.holding?.();
     this.call?.leave().catch(() => {});
     this.call = null;
@@ -509,6 +512,7 @@ export class LiveConversation {
     this.ports.voice.dial(preferences.phoneTexture);
     const attempt = {};
     this.attempt = attempt;
+    this.dialingAbort = new AbortController();
     this.endedBy = null;
     const dial = this.state.dial + 1;
     this.update({
@@ -530,6 +534,7 @@ export class LiveConversation {
     let started: Call;
     try {
       started = await this.ports.startCall(conversationId, preferences, {
+        signal: this.dialingAbort.signal,
         onMicOpen: gated(() => this.ports.tones.ring()),
         onEvent: gated((event) => this.onCallEvent(event)),
         onHearing: gated((hearing) => this.update({ hearing })),
@@ -920,6 +925,8 @@ export class LiveConversation {
     const connected = this.state.call.phase === "connected" ? this.state.call.since : null;
     const seconds = connected === null ? null : Math.max(0, Math.floor((this.now() - connected) / 1000));
     this.attempt = null;
+    this.dialingAbort?.abort();
+    this.dialingAbort = null;
     this.holding?.();
     this.call = null;
     this.ports.tones.hangUp();
