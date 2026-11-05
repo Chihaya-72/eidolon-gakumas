@@ -95,12 +95,13 @@ async def test_an_own_image_service_is_tried_by_generating_one_in_the_deployment
     assert photo_uses(settings.database_path) == []  # counted nowhere
 
 
+@pytest.mark.parametrize("api_format", ["openai", "openai-compatible"])
 async def test_an_own_image_service_in_openais_format_is_tried_there(
-    make_client: ClientFactory, settings: Settings
+    make_client: ClientFactory, settings: Settings, api_format
 ):
     image = FakeImageService()
     client = make_client(FakeLLM(), image_transport=image.transport())
-    mine = MINE | {"api_format": "openai", "base_url": "https://my-relay.image.test/v1"}
+    mine = MINE | {"api_format": api_format, "base_url": "https://my-relay.image.test/v1"}
 
     tried = await client.post(CHECK, json=mine)
 
@@ -143,8 +144,9 @@ async def test_a_deployment_without_the_judge_model_refuses_an_own_image_service
 # Her photos on it.
 
 
+@pytest.mark.parametrize("api_format", ["novelai", "openai-compatible"])
 async def test_a_turn_bringing_one_has_her_photo_on_it_counting_towards_nothing(
-    make_client: ClientFactory, settings: Settings
+    make_client: ClientFactory, settings: Settings, api_format
 ):
     image = FakeImageService()
     settings = replace(settings, image=replace(IMAGE, style="watercolor"))
@@ -153,15 +155,18 @@ async def test_a_turn_bringing_one_has_her_photo_on_it_counting_towards_nothing(
     )
     conversation = await start_conversation(client)
 
-    [photo] = photo_events(await send_turn(client, conversation, ASKED, own_keys={"image": MINE}))
+    mine = MINE | {"api_format": api_format}
+    [photo] = photo_events(await send_turn(client, conversation, ASKED, own_keys={"image": mine}))
     settled_photo = await settled(client, photo["id"])
 
     assert settled_photo["status"] == "ready"
     [request] = image.requests
     assert request["key"] == MY_KEY
-    assert request["url"] == "https://my-relay.image.test/ai/generate-image"
+    path = "/ai/generate-image" if api_format == "novelai" else "/images/generations"
+    assert request["url"] == f"https://my-relay.image.test{path}"
     assert request["body"]["model"] == MINE["model"]
-    assert "watercolor" in request["body"]["input"]  # the deployment's art style
+    field = "input" if api_format == "novelai" else "prompt"
+    assert "watercolor" in request["body"][field]  # the deployment's art style
     assert photo_uses(settings.database_path) == [(1,)]  # recorded, exempt
     assert image_calls(settings.database_path) == [("own", "own", 1)]
 

@@ -246,10 +246,11 @@ BAILIAN_REGION_CODES: dict[BailianRegion, str] = {"beijing": "cn-beijing", "sing
 DEFAULT_NOVELAI_BASE_URL = "https://image.novelai.net"
 DEFAULT_NOVELAI_MODEL = "nai-diffusion-5-curated"
 
-ImageFormat = Literal["novelai", "openai"]
+ImageFormat = Literal["novelai", "openai", "openai-compatible"]
 """How an image service is spoken to (`image_generation`): in NovelAI's own format, as
 NovelAI and the relays passing requests on as they are take it, or in OpenAI's image
-format, as other relays do. Chosen by whoever configures it, never found out."""
+format, as other relays do; or OpenAI-compatible image generation without NovelAI's
+extra parameters. Chosen by whoever configures it, never found out."""
 IMAGE_FORMATS: tuple[ImageFormat, ...] = get_args(ImageFormat)
 MAX_IMAGE_CONCURRENCY = 10
 """The most photos the deployer's image key may be set to generate at a time."""
@@ -1038,9 +1039,10 @@ class ImageSettings:
     """An image service (GLOSSARY.md「生图」): in NovelAI's own format, `base_url` up to the
     host (`/ai/generate-image`, answering with a ZIP), at NovelAI or a relay passing
     requests on as they are; or in OpenAI's image format, `base_url` up to `/v1`
-    (`/images/generations`). The deployer's generates `concurrency` photos at a time, in the
-    deployment's art style, `style`: tags written into every photo's prompt as they are,
-    weights, artists and all; none if empty."""
+    (`/images/generations`), with NovelAI relay parameters (`openai`) or standard image
+    generation parameters (`openai-compatible`). The deployer's generates `concurrency`
+    photos at a time, in the deployment's art style, `style`: tags written into every
+    photo's prompt as they are, weights, artists and all; none if empty."""
 
     api_key: str
     base_url: str = DEFAULT_NOVELAI_BASE_URL

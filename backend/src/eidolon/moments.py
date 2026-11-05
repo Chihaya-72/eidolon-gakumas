@@ -1051,7 +1051,7 @@ class Moments:
         image = self._config.image_settings
         compositions = draw_compositions(
             image is not None, character.photographed, self._random,
-            group=image is not None and image.api_format == "novelai"
+            group=image is not None and image.api_format in ("novelai", "openai-compatible")
             and any(m.character.photographed for m in circle),
         )
         return PostMaterial(

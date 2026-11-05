@@ -1961,7 +1961,8 @@ export const zh = {
         proxy_own_image: "只有 NovelAI 官方地址（https://image.novelai.net）走代理，中转一律直连。",
         judge_api_key: "Jev 填 OpenRouter 等的 key，Cloudflare 填 API token，阿里云百炼填这个业务空间的 key；换服务时必填，留空则不改。",
         judge_model: "Cloudflare 只能是 clef 或 clef-flash；阿里云百炼填 decision-model-preview。",
-        image_base_url: "官方格式填到域名根，OpenAI 图像格式填到 /v1。",
+        image_base_url: "NovelAI 官方格式填到域名根，两种 OpenAI 格式填到 /v1。",
+        api_format: "GPT Image 等服务选「OpenAI 图像生成兼容」；转发 NovelAI 的中转按服务说明选择。切换格式后，请一起填写对应的地址和模型名。",
         probability: "0 到 1 之间。",
         exempting_llm: "打开：通话要自带 LLM 才可能不计入限额。关闭：通话的 LLM 由部署者承担，带不带都不影响计数。文字回合不看这里，用了自带 LLM 就不计入。",
         exempting_tts: "打开：通话要自带语音合成（Fish Audio）才可能不计入限额。关闭：语音合成由部署者承担，带不带都不影响计数。",
@@ -1997,7 +1998,11 @@ export const zh = {
       /** 注册方式（GLOSSARY.md「注册方式」）的两种。 */
       registrations: { open: "谁都能注册", invite: "只让受邀的人注册" } as Record<string, string>,
       mapSites: { osm: "OpenStreetMap", google: "Google Maps", amap: "高德地图" } as Record<string, string>,
-      imageFormats: { novelai: "NovelAI 官方格式", openai: "OpenAI 图像格式" } as Record<string, string>,
+      imageFormats: {
+        novelai: "NovelAI 官方格式",
+        openai: "NovelAI 中转（OpenAI 格式）",
+        "openai-compatible": "OpenAI 图像生成兼容",
+      } as Record<string, string>,
       imageModels: {
         "nai-diffusion-5-curated": "V5 Curated",
         "nai-diffusion-5-full": "V5 Full",
@@ -2813,7 +2818,7 @@ export const zh = {
           { term: "判断模型", text: "每个回合，你说的话连同最近几个回合的对话会发给部署者配置的判断模型（TypeSafe 的 Jev，经 OpenRouter 等转发；或 Cloudflare 的 Clef），用来判断要不要回忆剧情或查资料、你是不是在要照片，以及这句话让角色对你的好感度怎样变化；通话中角色的回复也会一段段发过去，判断她的情绪。判断模型始终由部署者提供，填了自带密钥也不改变这一点。" },
           { term: "语音服务", text: "通话时，你的声音会发给部署者选择的语音识别服务（Soniox 或阿里云百炼）识别成文字，角色的回复会发给 Fish Audio 合成语音。她写好的信也会用部署者的 key 发给 Fish Audio 念出来。阿里云百炼不会用你的声音训练模型，但会保存一段时间，存放在中国内地或新加坡，取决于部署者的账号。" },
           { term: "向量化和重排服务", text: "为了在对话中找到相关的剧情和记忆，你说的话和记忆会发给部署者选择的向量化服务（硅基流动或 Google Gemini）和重排服务（硅基流动）。" },
-          { term: "生图服务", text: "角色给你发照片时，描述这张照片的英文 tag（地点、服装、动作，由角色根据对话写出）会发给部署者配置的生图服务（NovelAI，或者转发它的中转）；不发你说的原话。你填了自己的生图密钥，就发给你自己选择的服务。她在朋友圈发配图时，始终发给部署者配置的服务，填了自己的生图密钥也一样：有她的配图只发描述配图的英文 tag；风景、食物、物品的配图，部署者另配了 OpenAI 图像格式的服务时，还会把她写的一句配图说明、地点、时段和东京的天气发给它。" },
+          { term: "生图服务", text: "角色给你发照片时，描述这张照片的英文 tag（地点、服装、动作，由角色根据对话写出）会发给部署者配置的生图服务（NovelAI、转发它的中转，或 OpenAI 图像生成兼容服务）；不发你说的原话。你填了自己的生图密钥，就发给你自己选择的服务。她在朋友圈发配图时，始终发给部署者配置的服务，填了自己的生图密钥也一样：有她的配图只发描述配图的英文 tag；风景、食物、物品的配图，部署者另配了 OpenAI 图像格式的服务时，还会把她写的一句配图说明、地点、时段和东京的天气发给它。" },
           {
             term: "天气服务",
             text: "打字、通话和搭话时，服务器会向 Open-Meteo 查东京的天气。你在制作人档案里设了所在城市时，还会把这个城市的大致坐标发给{qweather}（天气服务由和风天气驱动），查当地的天气和预警。搜索城市时，你输入的城市名会发给和风天气；用「用当前位置」时，浏览器给出的坐标会发给和风天气，找出离你最近的城市，坐标本身不保存。",

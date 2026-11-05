@@ -31,8 +31,8 @@ export type FishAudioModel = (typeof FISH_AUDIO_MODELS)[number];
 /** 自带的 key 没选模型时用的免费模型：后端 `config.DEFAULT_FISH_AUDIO_MODEL`。 */
 export const DEFAULT_FISH_AUDIO_MODEL: FishAudioModel = "s2.1-pro-free";
 
-/** 生图服务的接口形式：后端 `config.ImageFormat`。NovelAI 官方格式，或 OpenAI 图像格式。 */
-export const IMAGE_FORMATS = ["novelai", "openai"] as const;
+/** 生图服务的接口形式：后端 `config.ImageFormat`。NovelAI 官方、中转，或 OpenAI 图像生成兼容。 */
+export const IMAGE_FORMATS = ["novelai", "openai", "openai-compatible"] as const;
 export type ImageFormat = (typeof IMAGE_FORMATS)[number];
 
 /** 生图下拉里的官方模型（V4 以后），默认的放第一个：后端 `config.DEFAULT_NOVELAI_MODEL`。不在里面的可以手填。 */

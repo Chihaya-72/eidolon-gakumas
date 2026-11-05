@@ -430,38 +430,40 @@ When the producer clearly asks her for a photo, she sends one of herself with he
 - **Turning it on**: It needs a judge, plus either the deployer's image generation (set `NOVELAI_API_KEY`) or the user's own. **A deployment without a judge has no photos**, and users can't enter their own image generation either (they're told 「这个部署发不了照片」, "this deployment can't send photos"). With neither, she knows she can't send photos and turns the user down in her own words when asked; this note goes with every turn, and the judge isn't asked.
 - **Characters**: `characters.toml` needs `photo_tag` (her character tag, as Danbooru writes it, lowercase) and `photo_appearance` (appearance tags for hair color, hairstyle and eye color only). She can send photos only with both; with one missing, startup warns. All 28 existing characters have them.
 
-`NOVELAI_API_FORMAT` picks one of two formats; it is never detected:
+`NOVELAI_API_FORMAT` picks one of three formats; it is never detected:
 
 | `NOVELAI_API_FORMAT` | Format | Address up to | Request URL | Answer |
 |---|---|---|---|---|
 | `novelai` (default) | NovelAI's own format: NovelAI's endpoint, or a relay passing requests on as they are | The domain root, by default `https://image.novelai.net` | `{address}/ai/generate-image` | ZIP |
-| `openai` | OpenAI's image format | `/v1`, as OpenAI's convention goes | `{address}/images/generations` | `b64_json` or `url` |
+| `openai` | NovelAI relay in OpenAI format (with `negative_prompt`) | `/v1`, as OpenAI's convention goes | `{address}/images/generations` | `b64_json` or `url` |
+| `openai-compatible` | OpenAI-compatible image generation (GPT Image and compatible services) | `/v1`, officially `https://api.openai.com/v1` | `{address}/images/generations` | `b64_json` or `url` |
 
-Switching the format doesn't change the address; when you switch, fix the address yourself too. Both send the key as `Authorization: Bearer`.
+Switching the format doesn't change the address or model; update both yourself. All three send the key as `Authorization: Bearer`.
 
 | Environment variable | Default | Notes |
 |---|---|---|
-| `NOVELAI_API_KEY` | Empty | A NovelAI persistent API token, or the key a relay gave you. Unset means the deployer has no image generation |
-| `NOVELAI_API_FORMAT` | `novelai` | `novelai` or `openai`; any other value fails at startup |
+| `NOVELAI_API_KEY` | Empty | The chosen image service's key. Unset means the deployer has no image generation |
+| `NOVELAI_API_FORMAT` | `novelai` | `novelai`, `openai` or `openai-compatible`; any other value fails at startup |
 | `NOVELAI_BASE_URL` | `https://image.novelai.net` | The address, see the table above |
 | `NOVELAI_MODEL` | `nai-diffusion-5-curated` | Sent to the service as is; with a relay, use the relay's model name |
 | `NOVELAI_CONCURRENCY` | 1 | How many photos this key generates at a time, 1 to 10; out of range fails at startup. A NovelAI token generates only one at a time, so requests queue first come, first served; a relay may take more |
 | `NOVELAI_STYLE` | Empty | The art style, see below |
 | `EIDOLON_PHOTOS_PER_HOUR` | 5 | Photos per user per hour, 0 for unlimited; see [Sign-in, users and usage limits](#sign-in-users-and-usage-limits) |
 
-- **Admin console**: The 「生图」 (Image generation) tab of the config page changes the first six above, taking precedence over `.env`. Saving generates one real picture at 832×1216 from a fixed prompt (no character, with the art style), checking the key, the format, that the answer can be read and that the size is right; if it fails, nothing is saved. That picture costs one image, but isn't counted in usage or recorded in activity records; it is generated only when the card's values change, never as the server restarts.
+- **Admin console**: The 「生图」 (Image generation) tab of the config page changes the first six above, taking precedence over `.env`. Saving generates one real picture in the selected format from a fixed prompt (no character, with the art style), checking the key, the format, response decoding and size handling; if it fails, nothing is saved. That picture costs one image, but isn't counted in usage or recorded in activity records; it is generated only when the card's values change, never as the server restarts.
 - **Art style**: `NOVELAI_STYLE` goes into every photo's prompt as it is (after the series tag), uncleaned, and may carry numeric weights and several artists, e.g. `0.7::artist:xxx::`; left empty, the whole part is left out. All characters share it, and photos on users' own image generation get it too. The repository's default is empty and this guide recommends no artists; whose style to use is the deployer's call.
-- **Fixed in code**: 832×1216, 23 steps, scale 7, `k_euler_ancestral`, one picture at a time, a random seed; the all-ages guard is fixed too: the negative prompt, the blocklist and the tag table can't be configured, by the deployer or for own keys. The tags she writes are cleaned and rewritten by the tag table, and tags for appearance, art style or on the blocklist are stripped. The tag table is `backend/src/eidolon/photo_tags.json`, committed to the repository and generated for `nai-diffusion-5-curated` only; regenerate it with `cd backend && uv run python scripts/photo_tags.py`, and add `--review` to list suggestions near the blocklist's seeds that are neither blocked nor allowed yet.
+- **Fixed in code**: photos are kept at 832×1216, one picture per request; NovelAI's own format uses 23 steps, scale 7, `k_euler_ancestral` and a random seed. Other formats use the parameters described below; the all-ages guard is fixed too: the negative prompt, the blocklist and the tag table can't be configured, by the deployer or for own keys. The tags she writes are cleaned and rewritten by the tag table, and tags for appearance, art style or on the blocklist are stripped. The tag table is `backend/src/eidolon/photo_tags.json`, committed to the repository and generated for `nai-diffusion-5-curated` only; regenerate it with `cd backend && uv run python scripts/photo_tags.py`, and add `--review` to list suggestions near the blocklist's seeds that are neither blocked nor allowed yet.
 - **Her tags in the logs**: A tag she writes that the tag table doesn't know is kept, and the server logs a line at info level, `a photo tag the tag table does not know, kept: '<tag>'`. That line carries the English tag she wrote as it is (places, clothes, actions, written by her from the conversation); deployers read it to extend the rewrite table.
 - **90 seconds in all**: Counted from when she finishes the photo tag, queueing, generating and downloading included, fixed in code. Timing out, a service error, or a wrong picture all mean the photo wasn't sent, with no automatic retry; the user sees why, and she later knows the user never got it.
 - **Cost**: Images are estimated per picture: NovelAI's `nai-diffusion-5-curated` has a preset of $0.036 each (the paid price at 832×1216 and 23 steps, checked 2026-10-17; on NovelAI's Opus subscription they actually come within the allowance, so the preset errs high); relays have no preset, and you set their price in the admin console. The "asking for a photo?" question is asked only in turns that could have a photo (not without image generation or a judge, nor when the user's photo limit is 0 and they bring no image generation of their own): riding along in the retrieval and affinity judgement, it adds 316 input tokens per judgement on Jev and 234 on Clef and Clef-flash; asked alone, with retrieval and affinity both off, a request takes 621 tokens on Jev and 317 on Clef and Clef-flash. The deployer always pays for judging.
 
 **What kind of relay you need**:
 
-- Only the two formats above. OpenAI chat-compatible relays (images back through `/chat/completions`) and vendor-specific APIs aren't supported, and an answer in chat's shape isn't taken.
-- It must return the 832×1216 picture as it is: the answer must be readable, hold exactly one picture, and be 832×1216, or it is a wrong picture. A relay that quietly changes the size is caught when you save in the admin console.
+- The three formats above are supported. OpenAI chat-compatible relays (images back through `/chat/completions`) and vendor-specific APIs aren't supported, and an answer in chat's shape isn't taken.
+- For `novelai` and `openai`, it must return the 832×1216 picture as it is: the answer must be readable, hold exactly one picture, and be 832×1216, or it is a wrong picture. A relay that quietly changes the size is caught when you save in the admin console.
 - A relay in NovelAI's own format must pass NovelAI's request body on as it is (V4's `v4_prompt` / `v4_negative_prompt` and later) and return the ZIP as it is.
 - OpenAI's image format sends only `model`, `prompt`, `negative_prompt`, `size` (`832x1216`), `n` (1) and `response_format: "b64_json"`, at the top level; no seed or steps, so the relay uses its own. It takes `b64_json` (with a `data:` prefix or without); a `url` is downloaded at once, the download counting within the 90 seconds.
+- **OpenAI-compatible image generation** (`openai-compatible`) sends only `model`, `prompt`, `size` and `n: 1`, without `negative_prompt`, `response_format`, seed or steps. Fixed exclusions and each group character's appearance are written into the prompt. Portraits request `1024x1536`, landscapes `1536x1024`; results are center-cropped and scaled to the kept dimensions, including when trying a configuration. It accepts base64 (with or without a `data:` prefix) or a URL. Both the admin console and own image keys offer this format. The 90-second limit is unchanged. Select this format for GPT Image and enter the service's model name.
 
 > [!WARNING]
 > The terms risk of image generation is the deployer's own:

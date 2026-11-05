@@ -11,8 +11,11 @@ a random seed, in the shape of V4's prompts and later. In OpenAI's image format:
 one picture of that size with the negative prompt, as base64 (`b64_json`, with a `data:`
 prefix or without); one answered with a URL instead is downloaded on the same client, in
 the same time. An answer in any other shape, a chat completion's among them, is not a
-picture. None of it is anyone's to set. What comes back is checked: exactly one picture, of
-the size asked for. It is kept as WebP, its size as it is, every bit of metadata dropped,
+picture. The separate `openai-compatible` format sends only model, prompt, size and n,
+with the negative prompt and group characters written into the prompt as instructions.
+It asks for standard OpenAI portrait or landscape sizes and fits the result to the kept
+size. What comes back is checked: exactly one picture, of the size asked for in the
+NovelAI formats. It is kept as WebP, every bit of metadata dropped,
 the prompt the PNG carries among it. Only the server calls the service; browsers never do.
 
 GPT Image (`GptImageGenerator`), for moments' pictures no one is in, is spoken to in OpenAI's
@@ -145,6 +148,8 @@ class ImageGenerator:
             async with asyncio.timeout_at(until):
                 if self.settings.api_format == "openai":
                     picture = await self._openai(prompt)
+                elif self.settings.api_format == "openai-compatible":
+                    picture = await self._openai_compatible(prompt)
                 else:
                     picture = await self._novelai(prompt)
         except (TimeoutError, httpx.TimeoutException) as e:
@@ -152,7 +157,9 @@ class ImageGenerator:
         except httpx.HTTPError as e:
             raise ImageFailed("service_error", f"无法连接生图服务：{e!r}") from e
         # On a thread: decoding and encoding take a while, which the event loop cannot spare.
-        return GeneratedImage(await asyncio.to_thread(kept_as_webp, picture, prompt.size))
+        return GeneratedImage(await asyncio.to_thread(
+            kept_as_webp, picture, prompt.size, self.settings.api_format == "openai-compatible"
+        ))
 
     async def _novelai(self, prompt: ImagePrompt) -> bytes:
         body = generation_request(
@@ -177,6 +184,14 @@ class ImageGenerator:
         )
         return await _openai_picture(self._client, res)
 
+    async def _openai_compatible(self, prompt: ImagePrompt) -> bytes:
+        res = await self._client.post(
+            f"{self.settings.base_url}/images/generations",
+            json=openai_compatible_request(self.settings.model, prompt),
+            headers=self._auth(),
+        )
+        return await _openai_picture(self._client, res)
+
     def _auth(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.settings.api_key}"}
 
@@ -192,6 +207,21 @@ def openai_request(model: str, prompt: ImagePrompt) -> dict:
         "n": 1,
         "response_format": "b64_json",
     }
+
+
+def openai_compatible_request(model: str, prompt: ImagePrompt) -> dict:
+    """Standard image generation, including GPT Image: no negative_prompt or
+    response_format extensions. Keep each group character distinct in the text prompt,
+    and express the fixed exclusions as instructions instead of an extra parameter."""
+    text = f"Create an all-ages anime illustration using these visual tags:\n{prompt.positive}"
+    if prompt.characters:
+        text += "\nDepict these characters together, keeping their appearances distinct:"
+        for number, character in enumerate(prompt.characters, 1):
+            text += f"\nCharacter {number}: {character}"
+    text += f"\nAvoid the following content and visual defects:\n{prompt.negative}"
+    width, height = prompt.size
+    size = "1024x1536" if height > width else "1536x1024" if width > height else "1024x1024"
+    return {"model": model, "prompt": text, "size": size, "n": 1}
 
 
 async def try_image_service(generator: ImageGenerator) -> None:

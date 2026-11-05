@@ -32,7 +32,8 @@ given them in order.
 
 Her picture (`draw_compositions`): where there is image generation, `PICTURED` of her
 moments have one, in any composition, or only those no one is in where she has no photo tags;
-a group photo only in NovelAI's own format, with one of her circle who has photo tags.
+a group photo in NovelAI's own or OpenAI-compatible format, with one of her circle who
+has photo tags.
 
 When she replies to the producer's comment on her moment (`draw_reply`): within
 `REPLY_AFTER` it by her tier, the closer the sooner, never in a tier below trust.
@@ -283,7 +284,7 @@ def draw_compositions(
 ) -> tuple[Composition, ...]:
     """The compositions her moment's picture may be in, none for no picture: none without
     image generation (`generating`), drawn for nothing; else `PICTURED` of the time every one
-    but a group photo, that too where `group` (NovelAI's own format, one of her circle
+    but a group photo, that too where `group` (a format supporting it, one of her circle
     with photo tags), or only those no one is in (`UNPEOPLED`) where she has no photo tags
     (`photographed`)."""
     if not generating or _draw(random) >= PICTURED:

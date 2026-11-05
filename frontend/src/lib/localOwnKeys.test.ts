@@ -231,13 +231,15 @@ const IMAGE = {
 } as const;
 
 describe("an own image generation", () => {
-  it("is kept with the rest, and goes with each call, named as a service", () => {
+  it.each(["openai", "openai-compatible"] as const)("keeps %s with the rest and brings it to turns and calls", (api_format) => {
     storage();
-    keepOwnKey("u1", "image", IMAGE);
+    const image = { ...IMAGE, api_format };
+    keepOwnKey("u1", "image", image);
     keepOwnKey("u1", "stt", STT);
 
-    expect(localOwnKeys("u1")).toEqual({ image: IMAGE, stt: STT });
-    expect(callOwnKeys("u1")).toEqual({ ownKeys: { image: IMAGE, stt: STT }, services: ["stt", "image"] });
+    expect(localOwnKeys("u1")).toEqual({ image, stt: STT });
+    expect(turnOwnKeys("u1")).toEqual({ image });
+    expect(callOwnKeys("u1")).toEqual({ ownKeys: { image, stt: STT }, services: ["stt", "image"] });
   });
 
   it("is left out where stored wrongly", () => {

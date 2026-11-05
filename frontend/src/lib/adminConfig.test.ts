@@ -418,11 +418,11 @@ describe("image", () => {
     });
   });
 
-  it("sends the format, the address, the model typed, how many at a time and the art style, an empty one as none", () => {
-    const typed = { ...form, api_format: "openai", base_url: " https://relay.example/v1 ", model: " relay-model ", concurrency: "3" };
+  it.each(["openai", "openai-compatible"])("sends %s with the address, model, concurrency and art style", (api_format) => {
+    const typed = { ...form, api_format, base_url: " https://relay.example/v1 ", model: " relay-model ", concurrency: "3" };
     expect(changeOf(image, { ...typed, style: " 0.7::artist:example:: ", api_key: "pst-new" }, true)).toEqual({
       change: {
-        api_format: "openai",
+        api_format,
         base_url: "https://relay.example/v1",
         model: "relay-model",
         concurrency: 3,

@@ -1,5 +1,5 @@
 """A group photo (GLOSSARY.md「配图」): her moment's picture of her with one or two of her
-circle, only in NovelAI's own format, where she has photo tags and one of her circle has
+circle, in NovelAI's own or OpenAI-compatible format, where she has photo tags and one of her circle has
 too. She is told who of her circle may be in it, and names them in `with`; a selfie if her
 `action` says so, else someone else takes it. Each is a character of her own in NovelAI's
 multiple characters, she first; how many they are, how it is taken, what they wear and how
@@ -11,11 +11,13 @@ Driven as `test_moment_pictures.py` drives pictures (`SteadyRandom(0)`: every mo
 picture, her circle all the others, the likes shown 5 minutes after it), Hiori and Meguru with
 photo tags, Kogane without."""
 
+import io
 from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
 
 import pytest
+from PIL import Image
 
 from eidolon.config import ImageSettings, Settings
 from eidolon.moment_prompt import (
@@ -186,6 +188,33 @@ async def test_whoever_is_in_it_with_her_likes_her_moment_written_so_or_not(
     [moment] = await timeline(client)
 
     assert moment["likes"] == ["kogane", "meguru", "hiori"]
+    assert degraded(settings.database_path) == [None]
+
+
+async def test_openai_compatible_group_photos_keep_each_characters_appearance_in_the_prompt(
+    make_client: ClientFactory, settings: Settings
+):
+    service = ImageSettings(
+        "gpt-key", "https://images.test/v1", "gpt-image-1.5", api_format="openai-compatible"
+    )
+    image = FakeImageService()
+    client, llm = await posted(
+        make_client, image, pictured("composition: group\nwith: hiori\naction: smile"),
+        settings=replace(settings, image=service),
+    )
+
+    assert "  - group：" in context_of(llm.prompts[-1])
+    [request] = image.requests
+    body = request["body"]
+    assert body.keys() == {"model", "prompt", "size", "n"}
+    assert body["size"] == "1536x1024"
+    assert f"Character 1: {MANO_BOX}" in body["prompt"]
+    assert f"Character 2: {HIORI_BOX}" in body["prompt"]
+    assert NEGATIVE_PROMPT in body["prompt"]
+    [moment] = await timeline(client)
+    picture = await client.get(moment["image"])
+    with Image.open(io.BytesIO(picture.content)) as webp:
+        assert (webp.format, webp.size) == ("WEBP", (1216, 832))
     assert degraded(settings.database_path) == [None]
 
 
