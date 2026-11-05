@@ -104,6 +104,8 @@ services:
     image: coturn/coturn:4.7
     network_mode: host
     cap_drop: [ALL]
+    # turnserver 程序自带这项文件权限，去掉后连启动都会失败（operation not permitted）
+    cap_add: [NET_BIND_SERVICE]
     security_opt: ["no-new-privileges:true"]
     # 直接运行 turnserver：镜像自带的入口脚本会对每个参数做一次 shell 求值
     entrypoint: ["turnserver"]
