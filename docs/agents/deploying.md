@@ -1,4 +1,4 @@
-# 帮用户部署 Eidolon-SC
+# 帮用户部署 Eidolon-Gakumas
 
 读者是替用户部署的 Agent。用户多半是新手：会照着做，但看不懂报错，也不知道该申请哪些服务。你负责判断和执行，用户只做必须由本人做的事：注册账号、申请 key、把 key 填进 `.env`、在浏览器里试用。
 
@@ -50,8 +50,8 @@
 ### 2.2 克隆和最小配置
 
 ```sh
-git clone https://github.com/Sallyn0225/eidolon-sc.git
-cd eidolon-sc
+git clone https://github.com/Chihaya-72/eidolon-gakumas.git
+cd eidolon-gakumas
 cp .env.example .env        # PowerShell：Copy-Item .env.example .env
 ```
 

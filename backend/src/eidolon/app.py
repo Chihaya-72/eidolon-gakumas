@@ -343,7 +343,7 @@ def create_app(backend: Backend) -> FastAPI:
         yield
         await backend.aclose()
 
-    app = FastAPI(title="Eidolon-SC", lifespan=lifespan)
+    app = FastAPI(title="Eidolon-Gakumas", lifespan=lifespan)
     app.state.backend = backend
     app.middleware("http")(session_middleware(backend.settings))
     add_access_routes(app, backend)

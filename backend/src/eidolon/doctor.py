@@ -387,7 +387,7 @@ class Report:
 
     def lines(self) -> list[str]:
         """The report as the newcomer reads it."""
-        said = ["Eidolon-SC 诊断：按 .env 逐项试一次各项服务"]
+        said = ["Eidolon-Gakumas 诊断：按 .env 逐项试一次各项服务"]
         if self.everyone_admin:
             said.append("  （开发登录：所有人都能进后台。后台配置页改过的项以后台为准，这里只查 .env）")
         elif self.admins:

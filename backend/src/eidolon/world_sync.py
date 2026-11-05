@@ -52,7 +52,7 @@ from eidolon.world import Idol, Staff, Unit, World, WorldError, WorldSyncError, 
 
 SPARQL_URL = "https://sparql.crssnky.xyz/spql/imas/query"
 OFFICIAL_URL = "https://shinycolors.idolmaster-official.jp/idol/"
-_USER_AGENT = "eidolon-sc world sync (run by hand)"
+_USER_AGENT = "eidolon-gakumas world sync (run by hand)"
 CORRECTIONS_FILE = "world-corrections.json"
 """The deployer's corrections, beside the data file (`release_sync.TrackCorrections`,
 `live_sync.LiveCorrections`)."""

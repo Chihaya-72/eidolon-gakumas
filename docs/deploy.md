@@ -28,7 +28,7 @@
 ## 部署
 
 ```sh
-git clone <仓库地址> eidolon-sc && cd eidolon-sc
+git clone <仓库地址> eidolon-gakumas && cd eidolon-gakumas
 cp .env.example .env
 ```
 
@@ -64,7 +64,7 @@ docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-前端和后端用 CI 发布到 GHCR 的镜像（`ghcr.io/sallyn0225/eidolon-sc-frontend`、`-backend`），服务器上不用构建。镜像只有 linux/amd64 一种。arm64 的服务器，或者想用自己改过的代码时，改用 `up -d --build` 在服务器上构建。
+前端和后端用 CI 发布到 GHCR 的镜像（`ghcr.io/chihaya-72/eidolon-gakumas-frontend`、`-backend`），服务器上不用构建。镜像只有 linux/amd64 一种。arm64 的服务器，或者想用自己改过的代码时，改用 `up -d --build` 在服务器上构建。
 
 第一次启动时 Caddy 会申请证书，稍等片刻后用浏览器打开 `https://你的域名`。后端启动失败时（缺少人设文件、对话模型检查不通过等），用 `docker compose -f docker-compose.prod.yml logs backend` 查看原因。
 
@@ -98,7 +98,7 @@ tail -f logs/story-sync.log   # 另开一个终端看进度
 用主机上的 cron 每周运行一次。`crontab -e`，加一行（路径换成仓库的实际位置；这里是每周一 4:17，时间随意，避开整点即可）：
 
 ```cron
-17 4 * * 1 /home/you/eidolon-sc/deploy/story-sync.sh
+17 4 * * 1 /home/you/eidolon-gakumas/deploy/story-sync.sh
 ```
 
 运行 cron 的用户要能执行 `docker compose`（root，或在 `docker` 组里），并且对仓库目录有写权限（要写 `corpus/` 和 `logs/`）。主机上要有 `git`；有 `flock`（util-linux，一般发行版都自带）时脚本会加锁，防止两次同步重叠，没有时（例如 Windows 的 Git Bash）不加锁照常同步。脚本自己把输出写进日志，cron 不会发邮件。
@@ -317,7 +317,7 @@ tail -f logs/stand-sync.log   # 另开一个终端看进度
 原作隔一两周出一次新卡，建议用 cron 每周同步一次，新卡就会自己出现在换衣装面板上；没有新卡时只是问一遍 ShinyColorsDB、列一遍存储桶，一分钟内结束。照「每周自动同步」加一行，和剧情同步错开时间（运行 cron 的用户要能运行 `uv`、`node`，对仓库目录有写权限）：
 
 ```cron
-47 4 * * 2 /home/you/eidolon-sc/deploy/stand-sync.sh
+47 4 * * 2 /home/you/eidolon-gakumas/deploy/stand-sync.sh
 ```
 
 **新增角色**：在 `characters.toml` 里给她配上 `idol_id` 和 `default_outfit`，重新运行 `deploy/stand-sync.sh`（已上传的衣装不会重复上传），再重启后端。
@@ -365,46 +365,11 @@ call_opener_subtitle = "啊，喂……我是真乃。那个，现在方便接�
 
 下面说的招呼的合成上传、地址、退出码和下线，开场白都一样，只是放在存储桶的 `call-openers/` 下（`/api/characters` 里是 `call_opener`），和招呼互不覆盖、互不删除。
 
-### 来电卡图
+### 欢迎页素材
 
-演示来电的锁屏上，打来电话的那位的一张卡图作联系人海报占满手机屏幕。它不进仓库（ADR-0003 的 2026-10-12 修订），由部署者手动放进存储桶的 `call-posters/<角色标识>.webp`：竖图，约 9:19.5（和手机屏幕一样），宽 300 px 左右就够。后端不查存储桶，配了 `EIDOLON_STAND_ASSETS_URL` 就在 `/api/characters` 里给出这个地址（`call_poster_url`）；那里没有图、加载不出来时，落地页显示她的印象色渐变加名字。地址固定，换图后浏览器和 CDN 可能缓存旧图一阵子，上传时缓存头设成 `public, max-age=86400`（一天）。
+当前欢迎页使用前端的 `welcome/` 组件和 `public/landing/welcome/gakumas-logo.webp`。通话与共享记忆是页面内的演示，不需要旧版落地页的 3D 手机、联系人海报、体素小人和记忆静止图，也不再请求 `/api/landing`。
 
-现在用的是真乃的「【しじまに華ひととき】櫻木真乃」，出处和裁法记在 `frontend/src/app/(landing)/CREDITS.md`；换图时一起改。
-
-### 体素小人
-
-落地页第 5 幕「记忆」里，四位偶像（真乃、果穗、冬优子、雾子）是站在浮岛上的方块（体素）小人。它们不进仓库（ADR-0003 的 2026-10-16 修订），由部署者手动放进存储桶的 `landing-voxels/<角色标识>.json`。后端不查存储桶，配了 `EIDOLON_STAND_ASSETS_URL` 就在 `/api/characters` 里给出每位角色的这个地址（`voxels_url`），落地页只用这四位的；那里没有文件、加载不出来时，她站的地方是一块她印象色的小方块加名字。
-
-从官方立绘做到存储桶：
-
-1. **画 Q 版三视图**：用生图模型，参照她的官方半身立绘和 Q 版图画一张三视图：白底、平光、约三头身、站直、双臂略离开身体、不带文字。提示词要点是「Character turnaround / model sheet … clean anime chibi, about 3 heads tall … FRONT, LEFT SIDE PROFILE, BACK … plain white background … arms hanging slightly away from the body … flat even lighting, flat cel colors, no text」，再逐条写清她的发型、服装、鞋袜、配饰，尤其是认得出她的东西（真乃头上的鸽子、果穗的呆毛和腰上的外套、冬优子的丸子头、雾子的双马尾和创可贴）。
-2. **取正面**：从三视图里切出正面，放到 1024×1024 的白底上居中。侧面、背面不用：三张图对不齐，用多视图生成反而更糟。
-3. **生成网格**：在混元 3D 网页版用「单图生成」，带纹理，导出 GLB（每个 30–50 MB）。第一次用之前看一眼它的用户条款，确认生成结果可以公开展示、改成体素。
-4. **转成体素**：在 `frontend/` 下跑
-
-   ```sh
-   node scripts/glb-voxelize.mts --out <输出目录> --preview <预览图目录> mano.glb kaho.glb fuyuko.glb kiriko.glb
-   ```
-
-   GLB 的文件名就是角色标识，输出 `<输出目录>/<角色标识>.json`。默认 96 格高，每个 200–550 KB；手机上吃力时加 `--height 64` 出小一号的，每个 90–210 KB。`--preview` 给每位写一张正面、背面并排的平面图，看一眼：脸上要有眼睛，后脑勺的头发不能有黑点。文件格式见脚本里的 `Voxels` 类型。
-5. **上传**到存储桶的 `landing-voxels/`，Content-Type 设成 `application/json`，缓存头 `public, max-age=86400`（一天；地址固定，换文件后浏览器和 CDN 可能缓存旧的一阵子）。
-
-三视图和 GLB 留在自己电脑上，不进仓库也不进存储桶。出处和做法记在 `frontend/src/app/(landing)/CREDITS.md`；换角色、重做模型时一起改。
-
-### 第 5 幕的静止图
-
-不播放动画的访客（定格档、静态档），和 3D 画布丢了上下文、建不起来的时候，落地页第 5 幕是一张事先渲染好的终局全景图：四位偶像站在各自的岛上，四根记忆柱顶上都是真乃颜色的方块，几根光线连着。图上有体素小人，所以它同样不进仓库，放在存储桶的 `landing-memory/still.webp`。后端不查存储桶，配了 `EIDOLON_STAND_ASSETS_URL` 就在 `/api/landing` 里给出这个地址（`memory_still_url`）；那里没有图、加载不出来时，静止版式里这一幕只有文字。
-
-图由页面上同一套场景代码在无头浏览器里画出来。改了第 5 幕的场景、换了体素文件以后重新出一张：
-
-1. 起后端（要配好 `EIDOLON_STAND_ASSETS_URL`，四位的体素文件已经在存储桶里），在 `frontend/` 下跑
-
-   ```sh
-   node scripts/landing-memory-still.mjs --out <文件> [--backend http://localhost:8000]
-   ```
-
-   输出 1920×1200 的 WebP，几十 KB。有哪位的体素文件加载不到就不出图。
-2. **上传**到存储桶的 `landing-memory/still.webp`，Content-Type 设成 `image/webp`，缓存头 `public, max-age=86400`。
+旧版素材的来源保留在 `frontend/src/app/(landing)/CREDITS.md` 作为历史记录。更新分享预览图时，在本地前端启动后运行 `node scripts/landing-og.mjs <前端地址>`；用 `node scripts/landing-check.mjs <前端地址>` 检查欢迎页。
 
 ### 合成上传
 
@@ -513,7 +478,7 @@ uv run --env-file=../.env eidolon bar upload /path/to/VA11_extract/audio
 
 本地开发时把 `https://你的域名` 换成 `http://localhost:3000`，并且另建一套开发用的应用（名字带上 `(dev)`）：线上应用只登记线上的回调地址，线上的密钥也不会出现在开发机的 `.env` 里。
 
-用户在 Google、GitHub 的授权页上看到的是应用的名称、图标和描述，所以名称要填用户认得的（和网站标题一样，例如 `Eidolon-SC`），不要用原作的名字或商标。图标在 `docs/brand/`：`oauth-logo-512.png` 给 GitHub，`oauth-logo-120.png` 给 Google。
+用户在 Google、GitHub 的授权页上看到的是应用的名称、图标和描述，所以名称要填用户认得的（和网站标题一样，例如 `Eidolon-Gakumas`），不要用原作的名字或商标。图标在 `docs/brand/`：`oauth-logo-512.png` 给 GitHub，`oauth-logo-120.png` 给 Google。
 
 > [!TIP]
 > 在仓库根目录运行 `scripts/setup-oauth.sh`，它会一步步打开下面要用的页面，告诉你每一栏填什么，把复制回来的值写进 `.env`，顺带生成 `EIDOLON_SECRET_KEY`、设置开发登录和 Gemini 计费的开关，最后重启后端，并列出用真实账号要验证的几件事。下面是同样的步骤，手动配置时照着做。
@@ -680,7 +645,7 @@ db.commit()
 
 ### 玩法仓库登记
 
-有人用「玩法仓库登记」模板开 issue 时，Fork showcase workflow 会检查仓库地址：能不能打开、是不是公开、仓库名是不是还叫 eidolon-sc（[`scripts/fork_showcase.py`](../scripts/fork_showcase.py)）。结果写在一条评论里，对方编辑 issue 后会更新这条评论；没通过就打 `needs-info`，通过了就摘掉。
+有人用「玩法仓库登记」模板开 issue 时，Fork showcase workflow 会检查仓库地址：能不能打开、是不是公开、仓库名是不是还叫 eidolon-gakumas（[`scripts/fork_showcase.py`](../scripts/fork_showcase.py)）。结果写在一条评论里，对方编辑 issue 后会更新这条评论；没通过就打 `needs-info`，通过了就摘掉。
 
 看过对方仓库、觉得可以收录，就给 issue 打上 `accepted` 标签。workflow 会再查一遍，然后把这一条写进 [`docs/community-forks.md`](community-forks.md) 里对应分级的一节，提交到 main，评论并关闭 issue。workflow 自己推的提交不会触发 CI，所以推完会再手动触发一次 main 上的 CI，跑完才能发版本。之后要改简介或下线某一条，直接改这份文档，每一条行末的注释里记着登记 issue 的编号。
 
@@ -688,7 +653,7 @@ db.commit()
 
 ### 镜像的可见性
 
-CI 第一次发布后，GHCR 上的两个包跟随仓库，默认是私有的，服务器拉不下来。到 GitHub 个人主页的 Packages，分别打开 `eidolon-sc-backend` 和 `eidolon-sc-frontend`，在 Package settings 的 Danger Zone 里改成 Public。公开的包不占账号的存储和流量额度，服务器不用登录就能拉取。改成公开后不能再改回私有。注意后端镜像里有 `backend/src` 的全部源代码，前端镜像里有构建后的前端代码：包公开就等于这部分代码公开了，即使仓库还是私有的。
+CI 第一次发布后，GHCR 上的两个包跟随仓库，默认是私有的，服务器拉不下来。到 GitHub 个人主页的 Packages，分别打开 `eidolon-gakumas-backend` 和 `eidolon-gakumas-frontend`，在 Package settings 的 Danger Zone 里改成 Public。公开的包不占账号的存储和流量额度，服务器不用登录就能拉取。改成公开后不能再改回私有。注意后端镜像里有 `backend/src` 的全部源代码，前端镜像里有构建后的前端代码：包公开就等于这部分代码公开了，即使仓库还是私有的。
 
 不想公开时，包保持私有，在服务器上用一个只有 `read:packages` 权限的 GitHub 令牌（classic personal access token）登录一次：`echo <令牌> | docker login ghcr.io -u <GitHub 用户名> --password-stdin`。
 
@@ -742,7 +707,7 @@ CI 第一次发布后，GHCR 上的两个包跟随仓库，默认是私有的，
 7. **装 cron**，每天一次。`crontab -e`，加一行（路径换成仓库的实际位置；时间随意，避开整点和剧情同步即可）：
 
    ```cron
-   43 3 * * * /home/you/eidolon-sc/deploy/db-backup.sh --cron
+   43 3 * * * /home/you/eidolon-gakumas/deploy/db-backup.sh --cron
    ```
 
    `--cron` 让备份记录里记下这是每天的 cron，不带时记为服务器上手动运行（2026-10-15 以前装的 cron 那一行没有它，补上即可）。脚本和镜像要一起升级（照「升级」，`git pull` 之后也 `pull`、`up -d`）：镜像还是旧的时，容器里的 `eidolon backup` 不认 `--source`，日志会误报成退出码 2。运行 cron 的用户要能执行 `docker compose`（root，或在 `docker` 组里），对 `logs/` 有写权限。

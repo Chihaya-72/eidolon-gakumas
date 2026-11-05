@@ -1151,7 +1151,7 @@ def _tally_columns(tally: Tally) -> str:
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="eidolon", description="Eidolon-SC 后端")
+    parser = argparse.ArgumentParser(prog="eidolon", description="Eidolon-Gakumas 后端")
     parser.add_argument(
         "--db", type=Path, help="数据库文件（默认取环境变量 EIDOLON_DATABASE_PATH）"
     )

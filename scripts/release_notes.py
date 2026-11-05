@@ -22,15 +22,15 @@ import time
 import urllib.error
 import urllib.request
 
-REPO = os.environ.get("GITHUB_REPOSITORY", "Sallyn0225/eidolon-sc")
-IMAGES = ("ghcr.io/sallyn0225/eidolon-sc-backend", "ghcr.io/sallyn0225/eidolon-sc-frontend")
+REPO = os.environ.get("GITHUB_REPOSITORY", "Chihaya-72/eidolon-gakumas")
+IMAGES = ("ghcr.io/chihaya-72/eidolon-gakumas-backend", "ghcr.io/chihaya-72/eidolon-gakumas-frontend")
 
 # 单个 PR 描述和整份材料的上限；材料超了就退回只给标题
 BODY_LIMIT = 4000
 MATERIAL_LIMIT = 150_000
 
 PRODUCT = (
-    "Eidolon-SC 是和《偶像大师 闪耀色彩》的偶像实时对话的 AI 分身：用户以 283 事务所制作人的身份"
+    "Eidolon-Gakumas 是和《学园偶像大师》的角色实时对话的 AI 分身：用户以初星学园制作人的身份"
     "和偶像打字聊天或打电话，她用日语原声回答、附中文字幕，能回忆原作剧情，记得用户说过的事。"
     "项目开源，可以自己部署到服务器上，任何人用 Google 或 GitHub 登录使用。"
 )
@@ -53,7 +53,7 @@ VOICE_RULES = """\
 - 中文用全角标点，引用界面上的名字用「」。"""
 
 UPDATE_PROMPT = f"""\
-你在给开源项目 Eidolon-SC 写一个版本的 GitHub Release 更新说明，读者是使用者和自己部署的人。
+你在给开源项目 Eidolon-Gakumas 写一个版本的 GitHub Release 更新说明，读者是使用者和自己部署的人。
 {PRODUCT}
 
 下面是从上一个版本到这个版本合进 main 的全部改动。第一行用一句话概括这一版主要做了什么（只陈述，不评价），
@@ -77,7 +77,7 @@ UPDATE_PROMPT = f"""\
 - 只改测试、文档、开发流程、CI，对使用者没有影响的改动，不写。"""
 
 FIRST_PROMPT = f"""\
-你在给开源项目 Eidolon-SC 写第一个正式版本的 GitHub Release 说明，读者是第一次了解这个项目的使用者和想自己部署的人。
+你在给开源项目 Eidolon-Gakumas 写第一个正式版本的 GitHub Release 说明，读者是第一次了解这个项目的使用者和想自己部署的人。
 {PRODUCT}
 
 下面是到这个版本为止合进 main 的全部 PR 和直接提交的标题。这是首个版本，不要写成逐条的更新记录，也不写修复和依赖升级。
@@ -164,7 +164,7 @@ def chat(system: str, user: str) -> str:
         "Authorization": f"Bearer {os.environ['RELEASE_LLM_API_KEY']}",
         "Content-Type": "application/json",
         # 有的服务商挡 Python 默认的 User-Agent
-        "User-Agent": "eidolon-sc-release-notes",
+        "User-Agent": "eidolon-gakumas-release-notes",
     }
     for attempt in range(3):
         try:

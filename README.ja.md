@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/images/landing.webp" alt="Eidolon-SC：283プロのアイドルとおしゃべりしよう" width="100%">
+<img src="docs/images/landing.webp" alt="Eidolon-Gakumas：283プロのアイドルとおしゃべりしよう" width="100%">
 
 **『アイドルマスター シャイニーカラーズ』のアイドルとリアルタイムで話せる AI 分身**
 
@@ -8,7 +8,7 @@
 
 [简体中文](README.md) · [English](README.en.md) · **日本語**
 
-[![CI](https://img.shields.io/github/actions/workflow/status/Sallyn0225/eidolon-sc/ci.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=CI)](https://github.com/Sallyn0225/eidolon-sc/actions/workflows/ci.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/Chihaya-72/eidolon-gakumas/ci.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=CI)](https://github.com/Chihaya-72/eidolon-gakumas/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](backend/pyproject.toml)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Pipecat](https://img.shields.io/badge/Pipecat-WebRTC-6E56CF?style=flat-square)](https://github.com/pipecat-ai/pipecat)
@@ -23,7 +23,7 @@
 
 ---
 
-Eidolon-SC では、**283プロのプロデューサー**として原作のアイドルとチャットしたり、そのまま電話したりできます。アイドルは日本語の声で答え、中国語字幕が付きます。原作で自分が経験したコミュを思い出せるうえ、あなたが話したことも覚えていて、アイドルたちのあいだで「伝わって」いきます。
+Eidolon-Gakumas では、**283プロのプロデューサー**として原作のアイドルとチャットしたり、そのまま電話したりできます。アイドルは日本語の声で答え、中国語字幕が付きます。原作で自分が経験したコミュを思い出せるうえ、あなたが話したことも覚えていて、アイドルたちのあいだで「伝わって」いきます。
 
 原作の 8 ユニット・**28 人のアイドル**と事務員の七草はづきがすべて設定済みで、すぐに話せます。公開サーバーにデプロイすれば、誰でも Google または GitHub でログインして使えます。
 
@@ -147,7 +147,7 @@ Eidolon-SC では、**283プロのプロデューサー**として原作のア�
 Docker と Docker Compose、そしてストリーミング出力とツール呼び出しに対応した会話モデルが必要です。
 
 ```sh
-git clone https://github.com/Sallyn0225/eidolon-sc.git && cd eidolon-sc
+git clone https://github.com/Chihaya-72/eidolon-gakumas.git && cd eidolon-gakumas
 cp .env.example .env    # CHAT_LLM_BASE_URL・CHAT_LLM_API_KEY・CHAT_LLM_MODEL を記入し、EIDOLON_DEV_LOGIN=1 の 1 行も追加
 docker compose up --build
 ```
@@ -261,7 +261,7 @@ npm run build && BACKEND_URL=http://localhost:8000 npm run start   # :3000 で�
 ## 📁 ディレクトリ構成
 
 ```text
-eidolon-sc/
+eidolon-gakumas/
 ├── backend/          # Python バックエンド：FastAPI + Pipecat。会話エンジン、通話、検索、メモリー、同期とコマンドライン（eidolon）
 │   ├── src/eidolon/
 │   ├── eval/         #   並べ替え・判断モデル・メモリーの評価用データセット（質問とラベルのみ、シナリオ本文は含まない）

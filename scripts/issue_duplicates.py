@@ -29,7 +29,7 @@ MATERIAL_LIMIT = 100_000
 MAX_DUPLICATES = 3
 
 PROMPT = f"""\
-你在帮开源项目 Eidolon-SC 维护 GitHub issue。{PRODUCT}
+你在帮开源项目 Eidolon-Gakumas 维护 GitHub issue。{PRODUCT}
 
 用户刚开了一个新 issue，下面给出它和以前所有的 issue（含已关闭的）。找出以前的 issue 里和新 issue 说的是同一件事的：
 同一个 bug，或同一个功能请求。只是同一个领域、沾点边的不算；拿不准就不算。宁可漏掉，不要误报。

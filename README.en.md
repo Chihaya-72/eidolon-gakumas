@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/images/landing.webp" alt="Eidolon-SC: talk with the idols of 283 Production" width="100%">
+<img src="docs/images/landing.webp" alt="Eidolon-Gakumas: talk with the idols of 283 Production" width="100%">
 
 **AI companions for real-time conversations with the idols of *THE iDOLM@STER SHINY COLORS***
 
@@ -8,7 +8,7 @@ Voice · Text · Story recall · Memory shared across characters
 
 [简体中文](README.md) · **English** · [日本語](README.ja.md)
 
-[![CI](https://img.shields.io/github/actions/workflow/status/Sallyn0225/eidolon-sc/ci.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=CI)](https://github.com/Sallyn0225/eidolon-sc/actions/workflows/ci.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/Chihaya-72/eidolon-gakumas/ci.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=CI)](https://github.com/Chihaya-72/eidolon-gakumas/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](backend/pyproject.toml)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Pipecat](https://img.shields.io/badge/Pipecat-WebRTC-6E56CF?style=flat-square)](https://github.com/pipecat-ai/pipecat)
@@ -23,7 +23,7 @@ Voice · Text · Story recall · Memory shared across characters
 
 ---
 
-Eidolon-SC lets you, as **a producer at 283 Production**, text or call the idols from the game. She answers in her own Japanese voice, with Chinese subtitles. She can recall the episodes she lived through in the game. She also remembers what you tell her, and word "gets around" among the idols.
+Eidolon-Gakumas lets you, as **a producer at 283 Production**, text or call the idols from the game. She answers in her own Japanese voice, with Chinese subtitles. She can recall the episodes she lived through in the game. She also remembers what you tell her, and word "gets around" among the idols.
 
 All **28 idols** from the game's eight units, plus the office clerk Nanakusa Hazuki, are already set up and ready to talk. Once deployed publicly, anyone can sign in with Google or GitHub and use it.
 
@@ -147,7 +147,7 @@ All **28 idols** from the game's eight units, plus the office clerk Nanakusa Haz
 You need Docker with Docker Compose, and a chat model that supports streaming and tool calling.
 
 ```sh
-git clone https://github.com/Sallyn0225/eidolon-sc.git && cd eidolon-sc
+git clone https://github.com/Chihaya-72/eidolon-gakumas.git && cd eidolon-gakumas
 cp .env.example .env    # fill in CHAT_LLM_BASE_URL, CHAT_LLM_API_KEY and CHAT_LLM_MODEL, then add the line EIDOLON_DEV_LOGIN=1
 docker compose up --build
 ```
@@ -261,7 +261,7 @@ npm run build && BACKEND_URL=http://localhost:8000 npm run start   # serves on :
 ## 📁 Project layout
 
 ```text
-eidolon-sc/
+eidolon-gakumas/
 ├── backend/          # Python backend: FastAPI + Pipecat; conversation engine, calls, retrieval, memory, sync and the CLI (eidolon)
 │   ├── src/eidolon/
 │   ├── eval/         #   eval sets for reranking, the judge and memory (questions and labels only, no story text)
