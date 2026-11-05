@@ -8,10 +8,12 @@ Driven through the backend's external API, the judge model faked and the image s
 faked at its transport, where every request it is sent is seen."""
 
 import asyncio
+import io
 from dataclasses import replace
 
 import httpx
 import pytest
+from PIL import Image
 
 from eidolon.config import ImageSettings, Settings
 from tests.conftest import ClientFactory
@@ -50,6 +52,7 @@ CARD = {
 OPENAI = ImageSettings(
     "relay-key", "https://relay.image.test/v1", "nai-diffusion-4-5-full", api_format="openai"
 )
+COMPATIBLE = replace(OPENAI, model="gpt-image-1.5", api_format="openai-compatible")
 
 
 @pytest.mark.parametrize("answer", ["b64_json", "data_url", "url"])
@@ -83,13 +86,47 @@ async def test_in_openais_image_format_the_picture_is_asked_for_at_the_top_level
     assert image.downloads == ([FakeImageService.DOWNLOAD] if answer == "url" else [])
 
 
+@pytest.mark.parametrize("answer", ["b64_json", "data_url", "url"])
+async def test_openai_compatible_photos_use_standard_parameters_and_fit_the_answer(
+    make_client: ClientFactory, settings: Settings, answer: OpenAIAnswer
+):
+    image = FakeImageService()
+    image.openai_answer = answer
+    image.size = (1024, 1024)  # Relays may answer at a different size.
+    client = make_client(
+        FakeLLM(REPLY), clients=asking(), settings=replace(settings, image=COMPATIBLE),
+        image_transport=image.transport(),
+    )
+    conversation = await start_conversation(client)
+
+    [photo] = photo_events(await send_turn(client, conversation, ASKED))
+
+    assert await settled(client, photo["id"]) == {"status": "ready", "reason": None}
+    picture = await client.get(f"/api/photos/{photo['id']}/image")
+    with Image.open(io.BytesIO(picture.content)) as webp:
+        assert (webp.format, webp.size) == ("WEBP", (832, 1216))
+    assert FakeImageService.METADATA.encode() not in picture.content
+    [request] = image.requests
+    assert request["url"] == "https://relay.image.test/v1/images/generations"
+    assert request["key"] == COMPATIBLE.api_key
+    body = request["body"]
+    assert {k: v for k, v in body.items() if k != "prompt"} == {
+        "model": "gpt-image-1.5", "size": "1024x1536", "n": 1,
+    }
+    assert "sakuragi mano, idolmaster shiny colors" in body["prompt"]
+    assert "Avoid the following" in body["prompt"]
+    assert "nsfw, lowres" in body["prompt"]
+    assert image.downloads == ([FakeImageService.DOWNLOAD] if answer == "url" else [])
+
+
+@pytest.mark.parametrize("service", [OPENAI, COMPATIBLE])
 async def test_in_openais_image_format_a_chat_shaped_answer_is_not_a_picture(
-    make_client: ClientFactory, settings: Settings
+    make_client: ClientFactory, settings: Settings, service: ImageSettings
 ):
     image = FakeImageService()
     image.openai_answer = "chat"
     client = make_client(
-        FakeLLM(REPLY), clients=asking(), settings=replace(settings, image=OPENAI),
+        FakeLLM(REPLY), clients=asking(), settings=replace(settings, image=service),
         image_transport=image.transport(),
     )
     conversation = await start_conversation(client)
@@ -120,14 +157,15 @@ async def test_the_art_style_goes_as_written_after_the_works_tag_before_her_look
     )
 
 
+@pytest.mark.parametrize("api_format", ["openai", "openai-compatible"])
 def test_env_sets_the_format_how_many_at_a_time_and_the_art_style(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, api_format,
 ):
     monkeypatch.setenv("NOVELAI_API_KEY", "pst-key")
     for name in ("NOVELAI_API_FORMAT", "NOVELAI_CONCURRENCY", "NOVELAI_STYLE"):
         monkeypatch.delenv(name, raising=False)
     by_default = ImageSettings.from_env()
-    monkeypatch.setenv("NOVELAI_API_FORMAT", "openai")
+    monkeypatch.setenv("NOVELAI_API_FORMAT", api_format)
     monkeypatch.setenv("NOVELAI_CONCURRENCY", "3")
     monkeypatch.setenv("NOVELAI_STYLE", " 0.7::artist:example:: ")
     set_so = ImageSettings.from_env()
@@ -135,7 +173,7 @@ def test_env_sets_the_format_how_many_at_a_time_and_the_art_style(
     assert by_default is not None
     assert (by_default.api_format, by_default.concurrency, by_default.style) == ("novelai", 1, "")
     assert set_so == ImageSettings(
-        "pst-key", api_format="openai", concurrency=3, style="0.7::artist:example::"
+        "pst-key", api_format=api_format, concurrency=3, style="0.7::artist:example::"
     )
 
 
@@ -244,6 +282,50 @@ async def test_an_image_card_saved_is_tried_on_one_picture_then_photos_are_on_it
     assert recorded(client, "image") == [("relay.image.test", "nai-diffusion-4-5-full", False)]
     assert restored.json()["image"] == before
     assert photo_events(after) == []
+
+
+async def test_openai_compatible_card_is_tried_saved_and_used_for_the_next_photo(
+    make_client: ClientFactory, admins: Settings, github: FakeIdentityProvider
+):
+    image = FakeImageService()
+    clients = asking()
+    clients.llm = FakeLLM(REPLY)
+    client = await image_admin(make_client, admins, github, image, clients)
+    card = CARD | {"api_format": "openai-compatible", "model": "gpt-image-1.5"}
+
+    saved = await client.put(IMAGE_CARD, json=card)
+
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["image"]["effective"]["api_format"] == "openai-compatible"
+    assert RELAY_KEY not in saved.text
+    assert (await client.get(CONFIG)).json()["image"] == saved.json()["image"]
+    assert recorded(client, "image") == []
+    conversation = await start_conversation(client)
+    [photo] = photo_events(await send_turn(client, conversation, ASKED))
+    assert (await settled(client, photo["id"]))["status"] == "ready"
+    assert len(image.requests) == 2
+    for request in image.requests:
+        assert request["body"].keys() == {"model", "prompt", "size", "n"}
+        assert request["body"]["model"] == "gpt-image-1.5"
+        assert request["body"]["size"] == "1024x1536"
+        assert "0.7::artist:example::" in request["body"]["prompt"]
+    assert recorded(client, "image") == [("relay.image.test", "gpt-image-1.5", False)]
+
+
+@pytest.mark.parametrize("api_format", ["openai", "openai-compatible"])
+async def test_openai_error_during_try_leaves_the_image_card_unsaved(
+    make_client: ClientFactory, admins: Settings, github: FakeIdentityProvider, api_format
+):
+    image = FakeImageService()
+    image.status = 400
+    image.error = "unsupported image parameter"
+    client = await image_admin(make_client, admins, github, image)
+
+    refused = await client.put(IMAGE_CARD, json=CARD | {"api_format": api_format})
+
+    assert refused.status_code == 422
+    assert "生图服务返回 400" in refused.json()["detail"]
+    assert (await client.get(CONFIG)).json()["image"]["status"] == "env"
 
 
 @pytest.mark.parametrize("wrong", ["key", "size"])

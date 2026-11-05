@@ -430,38 +430,40 @@ flowchart LR
 - **开启**：要有判断模型，再加部署者的生图（填 `NOVELAI_API_KEY`）或用户自带的生图。**没有判断模型的部署没有照片**，自带的生图也填不进去（提示「这个部署发不了照片」）。都没有时，她知道自己发不了照片，用户要时她用自己的话推掉；这句说明每个回合都带，不问判断模型。
 - **角色**：`characters.toml` 里要有 `photo_tag`（她的角色 tag，Danbooru 的写法、小写）和 `photo_appearance`（只写发色、发型、瞳色的外貌 tag），两项都配了她才能发，缺一项时启动会警告。现有 29 位都已配好。
 
-接口形式用 `NOVELAI_API_FORMAT` 二选一，不会自动探测：
+接口形式用 `NOVELAI_API_FORMAT` 三选一，不会自动探测：
 
 | `NOVELAI_API_FORMAT` | 接口 | 地址填到哪里 | 请求地址 | 返回 |
 |---|---|---|---|---|
 | `novelai`（默认） | NovelAI 官方格式：官方接入点，或原样转发的中转 | 域名根，默认 `https://image.novelai.net` | `{地址}/ai/generate-image` | ZIP |
-| `openai` | OpenAI 图像格式 | 照 OpenAI 的惯例填到 `/v1` | `{地址}/images/generations` | `b64_json` 或 `url` |
+| `openai` | NovelAI 中转（OpenAI 格式，带 `negative_prompt`） | 照 OpenAI 的惯例填到 `/v1` | `{地址}/images/generations` | `b64_json` 或 `url` |
+| `openai-compatible` | OpenAI 图像生成兼容（GPT Image 等） | 填到 `/v1`，官方为 `https://api.openai.com/v1` | `{地址}/images/generations` | `b64_json` 或 `url` |
 
-切换接口形式不会改地址，换了形式要自己把地址一起改对。两种都用 `Authorization: Bearer` 带上 key。
+切换接口形式不会改地址，换了形式要自己把地址和模型名一起改对。三种都用 `Authorization: Bearer` 带上 key。
 
 | 环境变量 | 默认值 | 说明 |
 |---|---|---|
-| `NOVELAI_API_KEY` | 空 | NovelAI 的持久 API token，或中转给的 key。不填就是部署者一侧没有生图 |
-| `NOVELAI_API_FORMAT` | `novelai` | `novelai` 或 `openai`，其他值启动时报错 |
+| `NOVELAI_API_KEY` | 空 | 所选生图服务的 key。不填就是部署者一侧没有生图 |
+| `NOVELAI_API_FORMAT` | `novelai` | `novelai`、`openai` 或 `openai-compatible`，其他值启动时报错 |
 | `NOVELAI_BASE_URL` | `https://image.novelai.net` | 接口地址，见上表 |
 | `NOVELAI_MODEL` | `nai-diffusion-5-curated` | 原样发给接口；用中转时填中转的模型名 |
 | `NOVELAI_CONCURRENCY` | 1 | 这个 key 同时生成几张，1 到 10，超出范围启动时报错。NovelAI 官方一个 token 同时只能一张，多人要时按先后排队；中转可以调高 |
 | `NOVELAI_STYLE` | 空 | 画风，见下 |
 | `EIDOLON_PHOTOS_PER_HOUR` | 5 | 每位用户每小时几张，0 表示不限，见[登录、用户与限额](#登录用户与限额) |
 
-- **后台**：配置页的「生图」标签可以改上面前六项，后台改的优先于 `.env`。保存时用固定的提示词（不带角色，带上画风）按 832×1216 真生成一张，验 key、接口形式、返回能不能解开、宽高对不对，不通就不保存。这张图要花一张的钱，但不计用量、不进运行记录；只在这张卡的值变了时生成，服务器重启时不再生成。
+- **后台**：配置页的「生图」标签可以改上面前六项，后台改的优先于 `.env`。保存时用固定的提示词（不带角色，带上画风）按所选格式真生成一张，验 key、接口形式、返回能不能解开和尺寸处理，不通就不保存。这张图要花一张的钱，但不计用量、不进运行记录；只在这张卡的值变了时生成，服务器重启时不再生成。
 - **画风**：`NOVELAI_STYLE` 原样插进每张照片的提示词（作品 tag 后面），不清洗，可以带数值加权和多位画师，例如 `0.7::artist:xxx::`；空着就整段不出现。所有角色共用，用户自带生图的照片也带上。仓库默认是空的，这里也不推荐具体的画师，用谁的画风由部署者自己决定。
-- **写死的部分**：832×1216、23 步、scale 7、`k_euler_ancestral`、一次一张、随机种子；全年龄的守卫也写死：负面词、黑名单、tag 表都不能配，后台和自带都一样。她写的 tag 先清洗、按 tag 表改写，外貌、画风和黑名单里的 tag 剥掉。tag 表是 `backend/src/eidolon/photo_tags.json`，随仓库提交，只按 `nai-diffusion-5-curated` 生成；重新生成用 `cd backend && uv run python scripts/photo_tags.py`，加 `--review` 列出黑名单种子附近、还没挡也没放行的建议。
+- **写死的部分**：照片保存为 832×1216，一次一张；NovelAI 官方格式用 23 步、scale 7、`k_euler_ancestral`、随机种子，其他格式的请求参数见下文；全年龄的守卫也写死：负面词、黑名单、tag 表都不能配，后台和自带都一样。她写的 tag 先清洗、按 tag 表改写，外貌、画风和黑名单里的 tag 剥掉。tag 表是 `backend/src/eidolon/photo_tags.json`，随仓库提交，只按 `nai-diffusion-5-curated` 生成；重新生成用 `cd backend && uv run python scripts/photo_tags.py`，加 `--review` 列出黑名单种子附近、还没挡也没放行的建议。
 - **日志里有她写的 tag**：她写的 tag 在 tag 表里查不到时照样保留，服务器日志在 info 级别记一行 `a photo tag the tag table does not know, kept: '<tag>'`。这一行带着她写的英文 tag 原文（地点、服装、动作这类，由她根据对话写出），部署者看它补改写表。
 - **总时限 90 秒**：从她写完照片标签算起，包括排队、生成和下载，写死。超时、服务报错、返回的图不对都算没发出来，不自动重试；用户看得到原因，她之后也知道用户没收到。
 - **费用**：生图按张估算，官方 `nai-diffusion-5-curated` 预设每张 0.036 美元（832×1216、23 步的付费价，2026-10-17 查价；用 NovelAI 的 Opus 订阅时实际在额度内，这个预设偏保守）；中转没有预设单价，在后台自己填。「是不是在要照片」这道题只在可能有照片的回合问（没有生图、没有判断模型，或者用户的照片限额为 0 又没带自带生图时不问）：并进检索和好感度的那次判断时，每次判断的输入多 316 token（Jev）或 234 token（Clef、Clef-flash）；检索和好感度都关着、单独问这一道时，一次请求 Jev 621 token、Clef 和 Clef-flash 317 token。判断始终由部署者承担。
 
 **需要什么样的中转**：
 
-- 只支持上面两种接口形式。OpenAI chat 兼容的（经 `/chat/completions` 回图）和各家自定义的接口不支持，chat 形状的返回不认。
-- 要原样返回 832×1216 的图：返回必须能解开、里面正好一张、宽高是 832×1216，不满足就是「返回的图不对」。会悄悄换尺寸的中转，在后台保存时就会被拦下。
+- 支持上面三种接口形式。OpenAI chat 兼容的（经 `/chat/completions` 回图）和各家自定义的接口不支持，chat 形状的返回不认。
+- `novelai` 和 `openai` 要原样返回 832×1216 的图：返回必须能解开、里面正好一张、宽高是 832×1216，不满足就是「返回的图不对」。会悄悄换尺寸的中转，在后台保存时就会被拦下。
 - 官方格式的中转要原样转发 NovelAI 的请求体（V4 以后的 `v4_prompt` / `v4_negative_prompt`），原样返回 ZIP。
 - OpenAI 图像格式只发顶层的 `model`、`prompt`、`negative_prompt`、`size`（`832x1216`）、`n`（1）和 `response_format: "b64_json"`，不发种子和步数，用中转自己的。收 `b64_json`（带不带 `data:` 前缀都行）；回 `url` 时立刻下载，下载也算在 90 秒里。
+- **OpenAI 图像生成兼容**（`openai-compatible`）只发 `model`、`prompt`、`size`、`n: 1`，不发 `negative_prompt`、`response_format`、种子和步数。固定负面词作为排除要求写进提示词，合照里每位角色的外貌分别写入。竖图请求 `1024x1536`，横图请求 `1536x1024`，返回后居中裁切并缩放到照片或配图的展示尺寸；试调也按此规则，不要求返回 832×1216。支持 `b64_json`、带 `data:` 前缀的 base64 和 `url`，后台和用户自带生图都可以选。原有 90 秒总时限不变。接 GPT Image 时选这一项，并填写服务提供的模型名。
 
 > [!WARNING]
 > 生图的条款风险由部署者自己承担：

@@ -519,6 +519,7 @@ function OwnImageForm({
                 ))}
               </SelectContent>
             </Select>
+            <FieldDescription>{admin.formHints.api_format}</FieldDescription>
           </Field>
           <Field>
             <FieldLabel htmlFor={`${id}-base-url`}>{t.baseUrl}</FieldLabel>
