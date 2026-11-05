@@ -1694,7 +1694,7 @@ export const zh = {
       loading: "正在读取…",
       /** 页首的分类标签（TabsList 的读屏名）和各个标签。 */
       restartRequired: "配置已保存，需要重启后端",
-      restartJudge: "首次启用判断模型需要重启，之后检索、好感度和照片判断才能接入这项服务。已有判断模型的参数修改即时生效。",
+      restartJudge: "首次启用或移除判断模型都需要重启，之后检索、好感度和照片判断才会接入或断开这项服务；重启前好感度开关不起作用或仍在使用原来的模型。已有判断模型的参数修改即时生效。",
       publicApiTitle: "公用 API",
       publicApiNav: "公用 API 分类",
       publicApiIntro: "供全站使用的 API 由管理员在这里配置。未配置 API Key 也能启动；用户的自用 API 仍在各自的设置中管理。密钥加密保存需要设置 EIDOLON_SECRET_KEY。",

@@ -596,3 +596,59 @@ def test_startup_checks_use_the_saved_proxy_before_contacting_a_provider(
     monkeypatch.setattr('uvicorn.run', run)
     assert main(['serve']) == 0
     assert checked == ['socks5://127.0.0.1:40000']
+
+
+def saved_chat_model(database: Path) -> None:
+    import sqlite3
+
+    with sqlite3.connect(database) as db:
+        db.execute(
+            'CREATE TABLE config_overrides (name TEXT PRIMARY KEY, value TEXT NOT NULL,'
+            ' last4 TEXT, updated_at TEXT NOT NULL)'
+        )
+        db.execute(
+            'INSERT INTO config_overrides VALUES (?, ?, NULL, ?)',
+            ('chat_llm.model', json.dumps('saved-model'), '2026-11-05'),
+        )
+
+
+def test_a_saved_chat_model_that_fails_its_check_leaves_the_server_up_for_an_admin_to_fix(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, characters: CharacterConfig,
+):
+    import asyncio
+
+    set_chat_model(monkeypatch, 'https://custom-provider.example/v1')
+    database = tmp_path / 'saved.db'
+    monkeypatch.setenv('EIDOLON_DATABASE_PATH', str(database))
+    monkeypatch.setenv('EIDOLON_CHARACTERS_PATH', str(characters.path))
+    saved_chat_model(database)
+    started = []
+
+    async def check(settings):
+        raise LLMError('the saved key was revoked')
+
+    def run(app, **kwargs):
+        started.append(True)
+        asyncio.run(app.state.backend.aclose())
+
+    monkeypatch.setattr('eidolon.__main__._check_chat_llm', check)
+    monkeypatch.setattr('uvicorn.run', run)
+    assert main(['serve']) == 0
+    assert started == [True]
+
+
+def test_a_chat_model_only_env_has_that_fails_its_check_still_stops_the_server(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, characters: CharacterConfig,
+    capsys: pytest.CaptureFixture[str],
+):
+    set_chat_model(monkeypatch, 'https://custom-provider.example/v1')
+    monkeypatch.setenv('EIDOLON_DATABASE_PATH', str(tmp_path / 'env.db'))
+    monkeypatch.setenv('EIDOLON_CHARACTERS_PATH', str(characters.path))
+
+    async def check(settings):
+        raise LLMError('this key does not work')
+
+    monkeypatch.setattr('eidolon.__main__._check_chat_llm', check)
+    monkeypatch.setattr('uvicorn.run', lambda *a, **k: pytest.fail('should not start'))
+    assert main(['serve']) == 1
+    assert 'this key does not work' in capsys.readouterr().err

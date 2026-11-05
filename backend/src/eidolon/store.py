@@ -968,14 +968,14 @@ def _bootstrap_admin(db: sqlite3.Connection) -> None:
 def _guest_user(db: sqlite3.Connection, token: str | None) -> tuple[User, str]:
     if token:
         row = db.execute("SELECT user_id FROM guest_browsers WHERE token_hash = ?",
-                         (hashlib.sha256(token.encode()).hexdigest(),)).fetchone()
+                         (_hash(token),)).fetchone()
         if row is not None and (user := _user(db, row[0])) is not None:
             return user, token
     token = secrets.token_urlsafe(32)
     user = User(uuid.uuid4().hex, "游客", _now(), is_guest=True)
     _insert_user(db, user)
     db.execute("INSERT INTO guest_browsers (token_hash, user_id) VALUES (?, ?)",
-               (hashlib.sha256(token.encode()).hexdigest(), user.id))
+               (_hash(token), user.id))
     return user, token
 
 

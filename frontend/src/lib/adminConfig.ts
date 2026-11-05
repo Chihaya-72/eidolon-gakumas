@@ -119,6 +119,18 @@ export function tabHref(pathname: string, tab: ConfigTab): string {
   return tab === "access" ? pathname : `${pathname}?tab=${tab}`;
 }
 
+export type PublicApiTab = (typeof PUBLIC_API_TABS)[number];
+
+/** The public API category a link asks for in `?tab=`; the models when it asks for none. */
+export function publicApiTabFromQuery(value: string | string[] | undefined): PublicApiTab {
+  return (PUBLIC_API_TABS as readonly unknown[]).includes(value) ? (value as PublicApiTab) : "models";
+}
+
+/** The address of the page showing a public API category: the models, the default, need no query. */
+export function publicApiTabHref(pathname: string, tab: PublicApiTab): string {
+  return tab === "models" ? pathname : `${pathname}?tab=${tab}`;
+}
+
 /** Whether an override under `tab` is not in effect: the tab is marked, so it is not missed
  * from another one. */
 export function tabHasFailure(config: AdminConfig, tab: ConfigTab): boolean {

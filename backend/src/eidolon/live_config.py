@@ -257,6 +257,8 @@ class _Item:
     secrets: frozenset[str] = frozenset()
     stored: tuple[str, ...] = ()
     unavailable_reason: str = ""
+    keeps_override_on_failure: bool = False
+    """Whether an override that fails stays in effect rather than giving way to `.env`."""
 
     def __init__(self, config: "LiveConfig") -> None:
         self.c = config
@@ -575,12 +577,6 @@ class _Judge(_Item):
     secrets = frozenset({"api_key"})
     _per_service = ("api_key", "account_id", "workspace_id", "region")
     """What each service has of its own, and another cannot use."""
-    unavailable_reason = (
-        "尚未配置判断模型，请在管理员设置的公用 API 中保存配置后重启后端"
-    )
-
-    def available(self) -> bool:
-        return True
 
     def env(self) -> Values:
         judge = self.c.settings.judge
@@ -638,9 +634,8 @@ class _Judge(_Item):
 
     async def apply(self, values: Values, prepared: Any = None) -> None:
         if not values.get("api_key"):
-            if self.c._judge is not None:
-                await self.c._judge.aclose()
-                self.c._judge = None
+            # What the server wired up at its start holds on to the running model, so it
+            # stays open, and in use, until a restart takes it out (`_judge_restart_pending`).
             if prepared is not None:
                 await prepared.aclose()
         elif self.c._judge is not None:
@@ -664,7 +659,7 @@ class _JudgeThresholds(_Item):
     name = JUDGE_THRESHOLDS
     fields = ("recall", "emotion", "out_of_line", "manipulation", "photo")
     stored = (FOR_MODEL,)
-    unavailable_reason = _Judge.unavailable_reason
+    unavailable_reason = "尚未配置判断模型，请在管理员设置的公用 API 中保存配置后重启后端"
 
     def available(self) -> bool:
         return self.c.judge_settings is not None
@@ -994,6 +989,9 @@ class _Proxy(_Item):
     holds from the next request on, of turns and calls under way too."""
 
     name = PROXY
+    # A proxy that fails may fail requests, but must never turn them into direct ones from
+    # the server's own address.
+    keeps_override_on_failure = True
     fields = ("enabled", "url", "password", *PROXIED_SERVICES)
     secrets = frozenset({"password"})
 
@@ -1168,15 +1166,12 @@ class LiveConfig:
                     self._overrides[item.name] = self._read(item)
                 except _Unreadable as e:
                     self._failures[item.name] = str(e)
-                    if item.name == PROXY:
-                        # Keep the saved route even when its password cannot be read.
-                        # An unauthenticated proxy request may fail, but must never
-                        # become a direct request from the server's own address.
-                        self._overrides[PROXY] = {
+                    if item.keeps_override_on_failure:  # all of it but what cannot be read
+                        self._overrides[item.name] = {
                             field: json.loads(row.value)
                             for field in item.fields if field not in item.secrets
-                            if (row := self._rows.get(f"{PROXY}.{field}")) is not None
-                        } | {"password": None}
+                            if (row := self._rows.get(f"{item.name}.{field}")) is not None
+                        } | dict.fromkeys(item.secrets)
 
         self._routes.replace(self.proxy_settings)
         chat = self.chat_model
@@ -1496,8 +1491,11 @@ class LiveConfig:
         with a warning. Logs those in effect."""
         for item in self._items.values():
             if item.name in self._failures:  # a key that can no longer be decrypted
-                if item.name == PROXY:
-                    log.warning("saved proxy credentials cannot be read; retaining the proxy route: %s", self._failures[PROXY])
+                if item.keeps_override_on_failure:
+                    log.warning(
+                        "what the admin console saved of %s cannot all be read; keeping the"
+                        " rest in effect: %s", item.name, self._failures[item.name],
+                    )
                     continue
                 log.warning(
                     "the admin console's override of %s cannot be read, so .env's is used"
@@ -1520,8 +1518,11 @@ class LiveConfig:
             except ConfigRejected as e:
                 self._failures[item.name] = str(e)
                 await item.apply(self.effective(item.name))
-                if item.name == PROXY:
-                    log.warning("proxy is unavailable; retaining its route without direct fallback: %s", e)
+                if item.keeps_override_on_failure:
+                    log.warning(
+                        "the admin console's override of %s failed; keeping it in effect: %s",
+                        item.name, e,
+                    )
                     continue
                 if item.name == JUDGE:
                     await self._judge_changed(values, self.effective(item.name), clear=False)
@@ -1567,16 +1568,16 @@ class LiveConfig:
                 "override": item.shown(override) if override else None,
                 "failure": failure,
             }
+            if item.keeps_override_on_failure and failure and override is not None:
+                entry["retained_on_failure"] = True
             if name == MEMORY_LLM:
                 entry["follows_chat"] = self._memory_follows()
-            if name == JUDGE and self.judge_settings is not None and self._judge is None:
+            if name in (JUDGE, AFFINITY) and self._judge_restart_pending():
                 entry["restart_required"] = True
             if name == SERVICE_STATUS:
                 entry["unconfigured"] = [s for s in SERVICE_NAMES if not self.has_service(s)]
             if name == PROXY:
                 targets = self._proxy_targets()
-                if failure and override is not None:
-                    entry["retained_on_failure"] = True
                 own = OWN_KEYS_PROXIED.values()
                 entry["unconfigured"] = [
                     s for s in PROXIED_SERVICES if s not in targets and s not in own
@@ -1661,6 +1662,15 @@ class LiveConfig:
         env = self.settings.judge
         base_url = env.base_url if isinstance(env, JevSettings) else DEFAULT_JEV_BASE_URL
         return JevSettings(values["api_key"], values["model"], base_url)
+
+    def has_saved(self, *names: str) -> bool:
+        """Whether an admin saved any of these items, readable or not."""
+        return any(name in self._overrides or name in self._failures for name in names)
+
+    def _judge_restart_pending(self) -> bool:
+        """Whether a judge model was set where the server started with none, or taken away
+        where it started with one: what uses it is wired up at the start only."""
+        return (self.judge_settings is None) != (self._judge is None)
 
     def _memory_follows(self) -> bool:
         """Whether the memory model is the chat model in effect: `.env` has it nowhere
@@ -1768,7 +1778,7 @@ class LiveConfig:
     def _in_effect(self, item: _Item, model: str | None = None) -> bool:
         return (
             item.name in self._overrides
-            and (item.name not in self._failures or item.name == PROXY)
+            and (item.name not in self._failures or item.keeps_override_on_failure)
             and self._bound_holds(item, model)
         )
 

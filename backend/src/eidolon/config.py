@@ -382,6 +382,27 @@ class LLMSettings:
         return cls._from_env("CHAT")
 
     @classmethod
+    def chat_required_from_env(cls) -> "LLMSettings":
+        """`chat_from_env`, for what cannot run without the model; raises RuntimeError saying
+        what is missing."""
+        return cls.chat_from_env()._required("CHAT")
+
+    @classmethod
+    def background_required_from_env(cls) -> "LLMSettings":
+        """`background_from_env`, for what cannot run without the model; raises RuntimeError
+        saying what is missing."""
+        return cls.background_from_env()._required("BACKGROUND")
+
+    def _required(self, slot: str) -> "LLMSettings":
+        for name, found in (
+            ("BASE_URL", self.base_url), ("API_KEY", self.api_key), ("MODEL", self.model),
+        ):
+            if not found.strip():
+                alternative = f"（或 CHAT_LLM_{name}）" if slot == "BACKGROUND" else ""
+                raise RuntimeError(f"环境变量 {slot}_LLM_{name}{alternative}未设置")
+        return self
+
+    @classmethod
     def background_from_env(cls) -> "LLMSettings":
         """The background model; each setting left unset is the chat model's."""
         return cls._from_env("BACKGROUND", fallback="CHAT")

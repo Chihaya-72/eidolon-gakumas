@@ -17,6 +17,8 @@ import {
   rows,
   statusDisplay,
   TAB_ITEMS,
+  publicApiTabFromQuery,
+  publicApiTabHref,
   tabFromQuery,
   tabHasFailure,
   tabHref,
@@ -547,6 +549,14 @@ describe("tabs", () => {
     expect(tabFromQuery("voice")).toBe("access");
     expect(tabFromQuery("network")).toBe("access");
     for (const value of [undefined, "nope"]) expect(tabFromQuery(value), String(value)).toBe("access");
+  });
+
+  it("keep a public API category in the address", () => {
+    expect(publicApiTabFromQuery("voice")).toBe("voice");
+    for (const value of [undefined, "nope", "limits", ["voice"]]) expect(publicApiTabFromQuery(value)).toBe("models");
+    expect(publicApiTabHref("/admin/config", "models")).toBe("/admin/config");
+    expect(publicApiTabHref("/admin/config", "network")).toBe("/admin/config?tab=network");
+    expect(tabFromQuery(publicApiTabHref("/admin/config", "network").split("=")[1])).toBe("access");
   });
 
   it("leave the default tab out of the address", () => {

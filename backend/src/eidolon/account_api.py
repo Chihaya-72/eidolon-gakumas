@@ -596,7 +596,7 @@ def add_account_routes(app: FastAPI, backend: Backend) -> None:
         recording nothing; 422 with what the service said if the try failed, or untried
         where there is no judge model, without which no turn has a photo. Its address and
         model as the browser is to keep them."""
-        if backend.config.judge_settings is None:
+        if not backend.config.has_service("judge"):
             raise OwnKeyRejected(NO_PHOTOS)
         own = body.settings()
         with throttle.asking(user_id):
