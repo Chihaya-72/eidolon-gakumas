@@ -6,7 +6,7 @@
 
 原文没有公开的生日、年龄使用 `"unknown"`；接口中的未知生日为 `null`，不会在日历创建生日。`cycles_enabled = false` 可关闭不适用角色的周期玩法；年龄未知时也不启用周期。中性界面占位色不是官方印象色。礼物、酒吧口味采用统一的玩法默认值，不是原作事实。
 
-这批文件没有提供 Fish Audio 音色、头像、立绘或背景图，所以 `voice_id` 暂留空，图片使用界面原有的后备样式。文字对话可用；语音需在各角色配置中填入对应音色后启用。
+14 位角色已配头像（`avatars/`），其中 13 位已配签名（`signatures/`，根绪亚纱里暂缺）；其余角色和缺的签名沿用界面原有的后备样式。这批文件没有提供 Fish Audio 音色、立绘或背景图，所以 `voice_id` 暂留空。文字对话可用；语音需在各角色配置中填入对应音色后启用。
 
 在 `backend/` 启动时默认路径为 `../characters/gakumas/characters.toml`；Docker 镜像内默认路径为 `/characters/gakumas/characters.toml`。已有 `EIDOLON_CHARACTERS_PATH` 环境变量或命令行 `--characters` 会覆盖默认值。修改后重启后端；Docker 使用修改后的代码时需重新构建后端镜像。
 
