@@ -463,7 +463,7 @@ flowchart LR
 - `novelai` 和 `openai` 要原样返回 832×1216 的图：返回必须能解开、里面正好一张、宽高是 832×1216，不满足就是「返回的图不对」。会悄悄换尺寸的中转，在后台保存时就会被拦下。
 - 官方格式的中转要原样转发 NovelAI 的请求体（V4 以后的 `v4_prompt` / `v4_negative_prompt`），原样返回 ZIP。
 - OpenAI 图像格式只发顶层的 `model`、`prompt`、`negative_prompt`、`size`（`832x1216`）、`n`（1）和 `response_format: "b64_json"`，不发种子和步数，用中转自己的。收 `b64_json`（带不带 `data:` 前缀都行）；回 `url` 时立刻下载，下载也算在 90 秒里。
-- **OpenAI 图像生成兼容**（`openai-compatible`）只发 `model`、`prompt`、`size`、`n: 1`，不发 `negative_prompt`、`response_format`、种子和步数。固定负面词作为排除要求写进提示词，合照里每位角色的外貌分别写入。竖图请求 `1024x1536`，横图请求 `1536x1024`，返回后居中裁切并缩放到照片或配图的展示尺寸；试调也按此规则，不要求返回 832×1216。支持 `b64_json`、带 `data:` 前缀的 base64 和 `url`，后台和用户自带生图都可以选。原有 90 秒总时限不变。接 GPT Image 时选这一项，并填写服务提供的模型名。
+- **OpenAI 图像生成兼容**（`openai-compatible`）只发 `model`、`prompt`、`size`、`n: 1`，不发 `negative_prompt`、`response_format`、种子和步数。提示词改写成 GPT Image 读得懂的句子：去掉 NovelAI 专用的质量词、`1girl`/`solo`、权重语法和 `artist:` 画师（GPT Image 可能拒绝模仿画师），拍到多少用文字说；负面词整串不发（里面的裸露类词容易触发审核），换成一句固定的全年龄、无文字要求，偷拍的照片另说明她不看镜头，合照里每位角色各占一行。画风里画师以外的部分照样带上。竖图请求 `1024x1536`，横图请求 `1536x1024`，返回后居中裁切并缩放到照片或配图的展示尺寸；试调也按此规则，不要求返回 832×1216。支持 `b64_json`、带 `data:` 前缀的 base64 和 `url`，后台和用户自带生图都可以选。原有 90 秒总时限不变。接 GPT Image 时选这一项，并填写服务提供的模型名。
 
 > [!WARNING]
 > 生图的条款风险由部署者自己承担：

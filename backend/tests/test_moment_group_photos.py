@@ -208,9 +208,9 @@ async def test_openai_compatible_group_photos_keep_each_characters_appearance_in
     body = request["body"]
     assert body.keys() == {"model", "prompt", "size", "n"}
     assert body["size"] == "1536x1024"
-    assert f"Character 1: {MANO_BOX}" in body["prompt"]
-    assert f"Character 2: {HIORI_BOX}" in body["prompt"]
-    assert NEGATIVE_PROMPT in body["prompt"]
+    assert f"Girl 1: {MANO_BOX.removeprefix('girl, ')}" in body["prompt"]
+    assert f"Girl 2: {HIORI_BOX.removeprefix('girl, ')}" in body["prompt"]
+    assert "nsfw" not in body["prompt"]
     [moment] = await timeline(client)
     picture = await client.get(moment["image"])
     with Image.open(io.BytesIO(picture.content)) as webp:

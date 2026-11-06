@@ -114,8 +114,8 @@ async def test_openai_compatible_photos_use_standard_parameters_and_fit_the_answ
         "model": "gpt-image-1.5", "size": "1024x1536", "n": 1,
     }
     assert "sakuragi mano, idolmaster shiny colors" in body["prompt"]
-    assert "Avoid the following" in body["prompt"]
-    assert "nsfw, lowres" in body["prompt"]
+    assert "masterpiece" not in body["prompt"]
+    assert "nsfw" not in body["prompt"]
     assert image.downloads == ([FakeImageService.DOWNLOAD] if answer == "url" else [])
 
 
@@ -308,7 +308,8 @@ async def test_openai_compatible_card_is_tried_saved_and_used_for_the_next_photo
         assert request["body"].keys() == {"model", "prompt", "size", "n"}
         assert request["body"]["model"] == "gpt-image-1.5"
         assert request["body"]["size"] == "1024x1536"
-        assert "0.7::artist:example::" in request["body"]["prompt"]
+        assert "artist" not in request["body"]["prompt"]
+        assert "Described in tags:" in request["body"]["prompt"]
     assert recorded(client, "image") == [("relay.image.test", "gpt-image-1.5", False)]
 
 
