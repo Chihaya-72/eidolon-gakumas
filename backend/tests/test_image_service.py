@@ -359,3 +359,87 @@ async def test_an_image_card_saved_again_as_it_is_is_not_tried_again(
 
     assert again.status_code == 200, again.text
     assert len(image.requests) == 1
+
+
+REFUSED_MODEL = (
+    '{"error":{"code":"model_not_found","message":'
+    '"Model \\"gpt-image-2.5\\" is not available for this group"}}'
+)
+REFUSED_NEGATIVE = '{"error":{"message":"unsupported image parameter: negative_prompt"}}'
+
+
+@pytest.mark.parametrize(
+    ("status", "error", "advice"),
+    [(404, REFUSED_MODEL, "分组没开通"), (400, REFUSED_NEGATIVE, "OpenAI 图像生成兼容")],
+)
+async def test_a_refusal_of_the_model_or_negative_prompt_says_what_to_do_keeping_its_words(
+    make_client: ClientFactory, admins: Settings, github: FakeIdentityProvider,
+    status: int, error: str, advice: str,
+):
+    image = FakeImageService()
+    image.status, image.error = status, error
+    client = await image_admin(make_client, admins, github, image)
+
+    refused = await client.put(IMAGE_CARD, json=CARD | {"api_format": "openai"})
+
+    assert refused.status_code == 422
+    detail = refused.json()["detail"]
+    assert advice in detail
+    assert f"生图服务返回 {status}" in detail
+
+
+async def test_an_image_card_whose_try_fails_can_be_kept_untried_on_the_admins_say(
+    make_client: ClientFactory, admins: Settings, github: FakeIdentityProvider
+):
+    image = FakeImageService()
+    image.status = 404
+    client = await image_admin(make_client, admins, github, image)
+    tried = len(image.requests)
+
+    kept = await client.put(f"{IMAGE_CARD}?untried=true", json=CARD)
+
+    assert kept.status_code == 200
+    assert kept.json()["image"]["status"] == "overridden"
+    assert len(image.requests) == tried
+
+
+async def test_an_image_card_without_a_key_is_not_kept_even_untried(
+    make_client: ClientFactory, admins: Settings, github: FakeIdentityProvider
+):
+    client = await image_admin(make_client, admins, github, FakeImageService())
+
+    refused = await client.put(f"{IMAGE_CARD}?untried=true", json=CARD | {"api_key": None})
+
+    assert refused.status_code == 422
+    assert "还没有生图的 key" in refused.json()["detail"]
+
+
+async def test_only_image_cards_can_be_kept_untried(
+    make_client: ClientFactory, admins: Settings, github: FakeIdentityProvider
+):
+    client = await image_admin(make_client, admins, github, FakeImageService())
+    judge_free = (await client.get(CONFIG)).json()["chat_llm"]["effective"]
+    change = {f: judge_free[f] for f in ("protocol", "base_url", "model")}
+
+    refused = await client.put("/api/admin/config/chat_llm?untried=true", json=change)
+
+    assert refused.status_code == 422
+
+
+async def test_the_image_card_lists_the_models_the_relay_offers_its_key(
+    make_client: ClientFactory, admins: Settings, github: FakeIdentityProvider
+):
+    image = FakeImageService()
+    client = await image_admin(make_client, admins, github, image)
+    at = {
+        "protocol": "chat-completions", "base_url": "https://relay.test/v1",
+        "api_key": "sk-relay-key",
+    }
+
+    listed = await client.post(f"{IMAGE_CARD}/models", json=at)
+    elsewhere = await client.post(f"{IMAGE_CARD}/models", json=at | {"api_key": None})
+
+    assert listed.json() == {"models": ["gpt-image-2", "chat-model"]}
+    assert image.listed_with == [("https://relay.test/v1/models", "sk-relay-key")]
+    assert elsewhere.status_code == 422
+    assert "API key" in elsewhere.json()["detail"]

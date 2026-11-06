@@ -132,7 +132,7 @@ from eidolon.judge import (
     try_judge_model,
     warn_if_uncalibrated,
 )
-from eidolon.llm import ChatLLM, ChatModels, LLMError
+from eidolon.llm import ChatLLM, ChatModels, LLMError, listing
 from eidolon.llm.providers import check_chat_llm, check_chat_models
 from eidolon.own_keys import DeployerKeys, DeployerLease, KeyCheck, OwnKeyRejected
 from eidolon.qweather import QWeather, QWeatherFailed, private_key_body
@@ -288,6 +288,11 @@ class _Item:
         """Try `values`, raising ConfigRejected saying why they do not work; the values
         as kept (with what the try found out) and whatever `apply` is to put in effect."""
         return values, None
+
+    def untried(self, values: Values) -> Values:
+        """`values` to be kept without a try, on the admin's say; raises ConfigRejected for
+        an item that must be tried, or `values` that could not work whatever a try says."""
+        raise ConfigRejected("这一项要试通才能保存")
 
     async def apply(self, values: Values, prepared: Any = None) -> None:
         """Put `values` in effect for whatever starts from now on."""
@@ -509,7 +514,8 @@ class _Image(_Item):
     which key and model, how many at a time, in which art style; off without a key. A
     change is tried by generating one picture, billed for nothing and recorded nowhere,
     unless it changes nothing; it is not tried again as the server starts, each try being
-    a picture paid for."""
+    a picture paid for. An admin may keep one whose try failed (`untried`): a relay can
+    refuse today what it will take once its side is set up."""
 
     name = IMAGE
     fields = ("api_format", "base_url", "api_key", "model", "concurrency", "style")
@@ -527,11 +533,15 @@ class _Image(_Item):
             change["base_url"] = change["base_url"].rstrip("/")
         return change
 
+    def untried(self, values: Values) -> Values:
+        if not values["api_key"]:
+            raise ConfigRejected("还没有生图的 key，请填写")
+        return values
+
     async def tried(self, values: Values) -> tuple[Values, Any]:
         if values == self.c.effective(self.name):
             return values, None
-        if not values["api_key"]:
-            raise ConfigRejected("还没有生图的 key，请填写")
+        self.untried(values)
         try:
             await try_image_service(ImageGenerator(_image(values), self.c._images))
         except ImageFailed as e:
@@ -562,11 +572,15 @@ class _GptImage(_Item):
             change["base_url"] = change["base_url"].rstrip("/")
         return change
 
+    def untried(self, values: Values) -> Values:
+        if not values["api_key"]:
+            raise ConfigRejected("还没有 GPT Image 的 key，请填写")
+        return values
+
     async def tried(self, values: Values) -> tuple[Values, Any]:
         if values == self.c.effective(self.name):
             return values, None
-        if not values["api_key"]:
-            raise ConfigRejected("还没有 GPT Image 的 key，请填写")
+        self.untried(values)
         try:
             await try_gpt_image(GptImageGenerator(_gpt_image(values), self.c._gpt_images))
         except ImageFailed as e:
@@ -1464,12 +1478,13 @@ class LiveConfig:
         return values
 
     async def list_models(
-        self, name: Literal["chat_llm", "memory_llm"], protocol: LLMProtocol, base_url: str,
-        api_key: str | None,
+        self, name: Literal["chat_llm", "memory_llm", "image", "gpt_image"],
+        protocol: LLMProtocol, base_url: str, api_key: str | None,
     ) -> list[str]:
         """The models the service at `base_url` offers the key, as it lists them, for the
         admin console to pick the model `name` is from: the key in effect now when none is
-        given, but only at the address it is in effect for, never sent to another. Raises
+        given, but only at the address it is in effect for, never sent to another. Image
+        services are asked on their own clients, the way their pictures go. Raises
         ConfigRejected saying why not."""
         if not api_key:
             current = self.effective(name)
@@ -1479,6 +1494,10 @@ class LiveConfig:
             if not api_key:
                 raise ConfigRejected("还没有 API key，请填写")
         try:
+            if name == IMAGE:
+                return await listing.list_models(self._images, protocol, base_url, api_key)
+            if name == GPT_IMAGE:
+                return await listing.list_models(self._gpt_images, protocol, base_url, api_key)
             return await self._clients.list_models(name, protocol, base_url, api_key)
         except LLMError as e:
             raise ConfigRejected(str(e)[:MAX_REASON_LENGTH]) from None
@@ -1634,9 +1653,10 @@ class LiveConfig:
         described["read_only"] = self._read_only()
         return described
 
-    async def save(self, name: str, change: Values) -> None:
+    async def save(self, name: str, change: Values, *, untried: bool = False) -> None:
         """Try the item `change` makes and, if it works, keep it and run every turn and
-        call from now on on it. Raises KeysReadOnly for a key without
+        call from now on on it; `untried`, keep it without trying, for an item that allows
+        it (`_Item.untried`). Raises KeysReadOnly for a key without
         `EIDOLON_SECRET_KEY`, ConfigInvalid or ConfigRejected saying why it was not kept,
         Unavailable for an item `.env` does not configure."""
         item = self._items[name]
@@ -1649,7 +1669,9 @@ class LiveConfig:
             current = self.effective(name)
             values = item.candidate(current, change)
             _check_ranges(item, values)
-            values, prepared = await item.tried(values)
+            values, prepared = (
+                (item.untried(values), None) if untried else await item.tried(values)
+            )
             if item.bound_model() is not None:
                 values[FOR_MODEL] = item.bound_model()
             await self._write(item, values, keep={f for f in item.secrets if f not in change})

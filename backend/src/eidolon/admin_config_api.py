@@ -376,15 +376,18 @@ def add_admin_config_routes(app: FastAPI, backend: Backend) -> None:
         return config.describe()
 
     @app.put("/api/admin/config/{item}")
-    async def save(item: str, _: Admin, body: dict = Body()) -> dict:  # noqa: B008
-        """Try the item and, if it works, run every turn and call from now on on it."""
+    async def save(
+        item: str, _: Admin, body: dict = Body(), untried: bool = False  # noqa: B008
+    ) -> dict:
+        """Try the item and, if it works, run every turn and call from now on on it;
+        `untried`, keep it without trying, where the item allows that."""
         item = item_or_error(item)
         try:
             parsed = INPUTS[item].model_validate(body)
         except ValidationError as e:
             raise HTTPException(422, e.errors(include_url=False, include_context=False)) from None
         try:
-            await config.save(item, _change(item, parsed))
+            await config.save(item, _change(item, parsed), untried=untried)
         except KeysReadOnly as e:
             raise HTTPException(409, str(e)) from None
         except Unavailable as e:
@@ -399,7 +402,7 @@ def add_admin_config_routes(app: FastAPI, backend: Backend) -> None:
     async def list_models(item: str, body: LLMListInput, _: Admin) -> dict:
         """The models the service offers the key, as it lists them, for the model slot
         `item` to pick one from; 422 saying why not."""
-        if item not in (CHAT_LLM, MEMORY_LLM):
+        if item not in (CHAT_LLM, MEMORY_LLM, IMAGE, GPT_IMAGE):
             raise HTTPException(404, "这一项不是模型")
         try:
             models = await config.list_models(

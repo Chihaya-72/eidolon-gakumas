@@ -596,3 +596,10 @@ it("shows a failed proxy route as retained rather than a direct fallback", () =>
     inEffect: true, effective: "socks5://127.0.0.1:40000",
   });
 });
+
+describe("keeping an image item untried", () => {
+  it("is offered only on the two image items", () => {
+    const savable = Object.entries(ITEM_SPECS).filter(([, spec]) => spec.savableUntried).map(([name]) => name);
+    expect(savable).toEqual(["image", "gpt_image"]);
+  });
+});

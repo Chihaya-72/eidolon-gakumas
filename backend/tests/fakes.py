@@ -644,6 +644,8 @@ class FakeImageService:
         self.size: tuple[int, int] | None = None
         self.garbled = False
         self.openai_answer: OpenAIAnswer = "b64_json"
+        self.models: list[str] = ["gpt-image-2", "chat-model"]
+        self.listed_with: list[tuple[str, str]] = []
         self._pictures: dict[str, bytes] = {}
 
     def transport(self) -> httpx.AsyncBaseTransport:
@@ -655,6 +657,10 @@ class FakeImageService:
             if self.download_status is not None:
                 return httpx.Response(self.download_status)
             return httpx.Response(200, content=self._pictures.pop(self.DOWNLOAD))
+        if request.method == "GET" and request.url.path.endswith("/models"):
+            key = request.headers["authorization"].removeprefix("Bearer ")
+            self.listed_with.append((str(request.url), key))
+            return httpx.Response(200, json={"data": [{"id": m} for m in self.models]})
         openai = request.url.path.endswith("/images/generations")
         assert request.method == "POST" and (
             openai or request.url.path.endswith("/ai/generate-image")
