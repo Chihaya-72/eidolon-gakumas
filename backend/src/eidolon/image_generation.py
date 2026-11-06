@@ -12,7 +12,8 @@ one picture of that size with the negative prompt, as base64 (`b64_json`, with a
 prefix or without); one answered with a URL instead is downloaded on the same client, in
 the same time. An answer in any other shape, a chat completion's among them, is not a
 picture. The separate `openai-compatible` format sends only model, prompt, size and n,
-with the negative prompt and group characters written into the prompt as instructions.
+the prompt written in sentences for a model that reads them (`openai_photo_prompt`), the
+group's characters each in a line of it, the negative prompt left out.
 It asks for standard OpenAI portrait or landscape sizes and fits the result to the kept
 size. What comes back is checked: exactly one picture, of the size asked for in the
 NovelAI formats. It is kept as WebP, every bit of metadata dropped,
@@ -48,6 +49,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from eidolon.billing import bill
 from eidolon.config import GptImageSettings, ImageSettings
 from eidolon.gpt_image_prompt import GptPrompt, gpt_picture_prompt
+from eidolon.openai_photo_prompt import openai_photo_prompt
 from eidolon.photo_prompt import ImagePrompt, PictureTag, check_prompt
 from eidolon.today import TOKYO
 from eidolon.weather import Weather
@@ -211,17 +213,11 @@ def openai_request(model: str, prompt: ImagePrompt) -> dict:
 
 def openai_compatible_request(model: str, prompt: ImagePrompt) -> dict:
     """Standard image generation, including GPT Image: no negative_prompt or
-    response_format extensions. Keep each group character distinct in the text prompt,
-    and express the fixed exclusions as instructions instead of an extra parameter."""
-    text = f"Create an all-ages anime illustration using these visual tags:\n{prompt.positive}"
-    if prompt.characters:
-        text += "\nDepict these characters together, keeping their appearances distinct:"
-        for number, character in enumerate(prompt.characters, 1):
-            text += f"\nCharacter {number}: {character}"
-    text += f"\nAvoid the following content and visual defects:\n{prompt.negative}"
+    response_format extensions, the prompt in sentences (`openai_photo_prompt`), at the
+    standard size of its shape."""
     width, height = prompt.size
     size = "1024x1536" if height > width else "1536x1024" if width > height else "1024x1024"
-    return {"model": model, "prompt": text, "size": size, "n": 1}
+    return {"model": model, "prompt": openai_photo_prompt(prompt), "size": size, "n": 1}
 
 
 async def try_image_service(generator: ImageGenerator) -> None:
