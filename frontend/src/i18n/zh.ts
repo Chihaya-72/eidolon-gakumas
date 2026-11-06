@@ -130,6 +130,7 @@ export const zh = {
     fetching: "获取中…",
     fetched: (n: number) => `服务商列出了 ${n} 个模型。`,
     fetchNeedsKey: "填好接口地址和 API key 后可以获取。",
+    imageModelHint: "填这个 key 能用的模型名。试调报模型不可用时，点「获取可用模型」看它能用哪些；中转没有模型列表接口时只能手填。",
   },
   conversationList: {
     title: "对话",
@@ -1701,11 +1702,16 @@ export const zh = {
     },
     config: {
       intro:
-        "这里改的配置存进数据库，优先于 .env。LLM、语音、生图和判断模型保存前会先试调一次，试不通不保存；保存后新的回合和新的通话立刻用上，进行中的通话不受影响，不用重启。没有标注状态的项用的是 .env 的值。",
+        "这里改的配置存进数据库，优先于 .env。LLM、语音、生图和判断模型保存前会先试调一次，试不通不保存（生图可以选择坚持保存）；保存后新的回合和新的通话立刻用上，进行中的通话不受影响，不用重启。没有标注状态的项用的是 .env 的值。",
       loading: "正在读取…",
       /** 页首的分类标签（TabsList 的读屏名）和各个标签。 */
       restartRequired: "配置已保存，需要重启后端",
       restartJudge: "首次启用或移除判断模型都需要重启，之后检索、好感度和照片判断才会接入或断开这项服务；重启前好感度开关不起作用或仍在使用原来的模型。已有判断模型的参数修改即时生效。",
+      /** 试调没过时，生图的两项可以坚持保存。 */
+      saveUntried: "不试调，直接保存",
+      savingUntried: "正在保存…",
+      saveUntriedHint: "这项配置刚才没试通。保存后如果中转还是拒绝，照片和配图会发不出来，直到改好为止。",
+      savedUntried: "已保存，没有试调。",
       publicApiTitle: "公用 API",
       publicApiNav: "公用 API 分类",
       publicApiIntro: "供全站使用的 API 由管理员在这里配置。未配置 API Key 也能启动；用户的自用 API 仍在各自的设置中管理。密钥加密保存需要设置 EIDOLON_SECRET_KEY。",
@@ -1752,7 +1758,7 @@ export const zh = {
         },
         image: {
           title: "生图",
-          hint: "她发的照片由它生成。保存前用固定的提示词带上画风真生成一张来检查，这一张不计用量。",
+          hint: "她发的照片由它生成，可以接 NovelAI，也可以接 OpenAI 格式的中转。保存前用固定的提示词带上画风真生成一张来检查，这一张不计用量。",
         },
         gpt_image: {
           title: "无人配图（GPT Image）",
@@ -1962,7 +1968,7 @@ export const zh = {
         judge_api_key: "Jev 填 OpenRouter 等的 key，Cloudflare 填 API token，阿里云百炼填这个业务空间的 key；换服务时必填，留空则不改。",
         judge_model: "Cloudflare 只能是 clef 或 clef-flash；阿里云百炼填 decision-model-preview。",
         image_base_url: "NovelAI 官方格式填到域名根，两种 OpenAI 格式填到 /v1。",
-        api_format: "GPT Image 等服务选「OpenAI 图像生成兼容」；转发 NovelAI 的中转按服务说明选择。切换格式后，请一起填写对应的地址和模型名。",
+        api_format: "OpenAI 格式的中转一般选「OpenAI 图像生成兼容」；只有中转明确说接受 negative_prompt 时才选 NovelAI 中转。切换格式后，请一起填写对应的地址和模型名。",
         probability: "0 到 1 之间。",
         exempting_llm: "打开：通话要自带 LLM 才可能不计入限额。关闭：通话的 LLM 由部署者承担，带不带都不影响计数。文字回合不看这里，用了自带 LLM 就不计入。",
         exempting_tts: "打开：通话要自带语音合成（Fish Audio）才可能不计入限额。关闭：语音合成由部署者承担，带不带都不影响计数。",
@@ -2000,8 +2006,8 @@ export const zh = {
       mapSites: { osm: "OpenStreetMap", google: "Google Maps", amap: "高德地图" } as Record<string, string>,
       imageFormats: {
         novelai: "NovelAI 官方格式",
-        openai: "NovelAI 中转（OpenAI 格式）",
-        "openai-compatible": "OpenAI 图像生成兼容",
+        openai: "NovelAI 中转（带 negative_prompt）",
+        "openai-compatible": "OpenAI 图像生成兼容（GPT Image 和一般中转）",
       } as Record<string, string>,
       imageModels: {
         "nai-diffusion-5-curated": "V5 Curated",

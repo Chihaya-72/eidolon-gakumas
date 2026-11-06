@@ -322,9 +322,23 @@ async def _openai_item(client: httpx.AsyncClient, item: dict) -> bytes:
     raise _bad_image("返回里没有 b64_json，也没有 url")
 
 
+MODEL_REFUSED = "这个 key 用不了这个模型（分组没开通，或模型名不对），请换一个模型或到中转后台开通。"
+"""What a service refusing the model (`model_not_found`) means: no request of ours can
+change it, so it is said first, the service's own words after it."""
+NEGATIVE_PROMPT_REFUSED = "这个服务不接受 negative_prompt，接口形式请改选「OpenAI 图像生成兼容」。"
+"""What a service refusing the `openai` format's extra parameter means: it wants the
+standard one, which no one can tell from the format's name alone."""
+
+
 def _check_status(res: httpx.Response) -> None:
     if res.status_code >= 400:
-        raise ImageFailed("service_error", f"生图服务返回 {res.status_code}: {res.text[:300]}")
+        said = f"生图服务返回 {res.status_code}: {res.text[:300]}"
+        hint = (
+            MODEL_REFUSED if "model_not_found" in res.text
+            else NEGATIVE_PROMPT_REFUSED if "negative_prompt" in res.text
+            else ""
+        )
+        raise ImageFailed("service_error", f"{hint}{said}")
 
 
 def _decoded(encoded: str) -> bytes:

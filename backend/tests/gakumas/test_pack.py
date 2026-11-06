@@ -4,8 +4,10 @@ Can also run without the application's integration fixtures:
 PYTHONPATH=src pytest --confcutdir=tests/gakumas tests/gakumas
 """
 
+import re
+from collections import Counter
 from dataclasses import replace
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
@@ -15,9 +17,10 @@ from eidolon.bar_visits import check_bar_visits, load_bar_visits
 from eidolon.characters import CharacterConfigError, load_characters
 from eidolon.drink_catalog import check_bar_tastes, load_drink_catalog
 from eidolon.gift_catalog import check_liked_gifts, load_gift_catalog
-from eidolon.job_list import load_job_list
+from eidolon.job_list import WORK, load_job_list
 from eidolon.place_pool import check_job_places, check_place_likes, load_place_pool
 from eidolon.producer import Birthday, ProducerProfile, is_birthday, producer_prompt
+from eidolon.schedule import FIRST_WEEK, draw_week, idols_of
 from eidolon.today import always_known
 from eidolon.world import World, WorldError, load_world
 
@@ -76,6 +79,39 @@ def test_unknown_birthday_never_creates_an_event_or_a_fabricated_date():
     saki = load_characters(PACK / "characters.toml")["saki"]
     assert saki.birthday == Birthday(4, 2)
     assert is_birthday(saki.birthday, date(2026, 4, 2))
+
+
+def test_calendar_birthdays_match_the_dates_explicitly_given_in_each_sheet():
+    for c in load_characters(PACK / "characters.toml").values():
+        dates = {
+            Birthday(int(month), int(day))
+            for month, day in re.findall(r"生日\s*[：:]?\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日", c.sheet)
+        }
+        assert dates == ({c.birthday} if c.birthday else set()), c.name
+
+
+def test_seventeen_idols_get_valid_schedules_for_ten_years_and_each_has_a_week_per_round():
+    characters = load_characters(PACK / "characters.toml")
+    idols = idols_of(characters, load_world(PACK / "world.json"))
+    jobs = load_job_list(PACK / "jobs.toml")
+    assert len(idols) == 17
+    for start in range(0, 520, 4):
+        appearances: Counter[str] = Counter()
+        for offset in range(4):
+            week = FIRST_WEEK + timedelta(weeks=start + offset)
+            drawn = draw_week(week, idols, jobs)
+            by_idol: dict[str, list] = {}
+            for idol, job in drawn:
+                by_idol.setdefault(idol, []).append(job)
+            assert len(by_idol) in (4, 5), week
+            appearances.update(by_idol.keys())
+            assert all(2 <= len(given) <= 3 for given in by_idol.values()), week
+            assert all(any(j.category in WORK for j in given) for given in by_idol.values()), week
+            assert all(sum(j.category == "private" for j in given) <= 1 for given in by_idol.values()), week
+            assert len({j.id for _, j in drawn}) == len(drawn), week
+            least, most = (13, 16) if len(by_idol) == 4 else (17, 20)
+            assert least <= sum(j.length for _, j in drawn) <= most, week
+        assert appearances == Counter(idols)
 
 
 @pytest.mark.parametrize("field,value", [("birthday", '"02-30"'), ("age", "0"), ("cycles_enabled", '"false"')])
