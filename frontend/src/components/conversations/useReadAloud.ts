@@ -20,12 +20,18 @@ export function readAloudFor(userId: string): ReadAloud {
         voice: (said) => voice(said, userId),
         decode: decodeVoiced,
         player,
-        keep: (audio) => URL.createObjectURL(new Blob([audio], { type: "audio/mpeg" })),
+        keep: (audio) => URL.createObjectURL(new Blob([audio], { type: audioType(audio) })),
         release: (url) => URL.revokeObjectURL(url),
       }),
     };
   }
   return shared.readAloud;
+}
+
+/** 朗读回来的音频是什么格式：自建的 Irodori 给 WAV（以 RIFF 开头），Fish Audio 给 mp3。 */
+function audioType(audio: ArrayBuffer): string {
+  const head = new Uint8Array(audio, 0, Math.min(4, audio.byteLength));
+  return String.fromCharCode(...head) === "RIFF" ? "audio/wav" : "audio/mpeg";
 }
 
 /** 她的一条话朗读到哪一步了；没点过「朗读」或已经放掉了是 undefined。 */

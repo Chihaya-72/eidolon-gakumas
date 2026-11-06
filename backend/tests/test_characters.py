@@ -55,6 +55,7 @@ async def test_character_list_shows_name_intro_avatar_colour_and_background_but_
             "call_opener": None,
             "call_poster_url": None,  # no stand assets URL is configured
             "voxels_url": None,
+            "self_voiced": False,
         },
         {
             "id": "kogane",
@@ -79,6 +80,7 @@ async def test_character_list_shows_name_intro_avatar_colour_and_background_but_
             "call_opener": None,
             "call_poster_url": None,
             "voxels_url": None,
+            "self_voiced": False,
         },
     ]
     assert "ほわっ" not in res.text

@@ -215,6 +215,9 @@ class Character:
     """Her looks as tags, e.g. `brown hair, medium hair, brown eyes`, for her photos."""
     cycles_enabled: bool = True
     """Whether this character participates in the optional cycle mechanic."""
+    irodori_voice: str | None = None
+    """Her voice on the deployer's own Irodori-TTS server (`irodori`), e.g. `kotone`; her
+    words are read aloud in it, not on Fish Audio, when the server is configured."""
 
     @property
     def photographed(self) -> bool:
@@ -383,6 +386,7 @@ def _parse_character(
         photo_tag=_other_name(entry, "photo_tag", label),
         photo_appearance=_other_name(entry, "photo_appearance", label),
         cycles_enabled=cycles_enabled,
+        irodori_voice=_other_name(entry, "irodori_voice", label),
     )
 
 

@@ -192,7 +192,7 @@ export function ConversationView({
   const reading = (conversationId: string): Reading => ({
     readAloud,
     conversationId,
-    canRead: canReadAloud,
+    canRead: canReadAloud || character.self_voiced,
     inCall,
     timeZone,
     subtree,

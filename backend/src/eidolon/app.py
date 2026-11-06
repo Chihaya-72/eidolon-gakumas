@@ -559,6 +559,7 @@ def create_app(backend: Backend) -> FastAPI:
                 "call_opener": _call_opener(c, backend.settings.stand_assets_url),
                 "call_poster_url": _call_poster(c, backend.settings.stand_assets_url),
                 "voxels_url": _voxels(c, backend.settings.stand_assets_url),
+                "self_voiced": c.irodori_voice is not None and backend.irodori is not None,
             }
             for c in listed
         ]
@@ -736,14 +737,22 @@ def create_app(backend: Backend) -> FastAPI:
         conversation: Conversation, segments: list[Segment] | None, body: ReadAloudInput,
         user_id: str,
     ) -> Response:
-        """Her `segments` read aloud (GLOSSARY.md「朗读」), as mp3 for the user's browser alone:
+        """Her `segments` read aloud (GLOSSARY.md「朗读」), as mp3 for the user's browser alone, or
+        as WAV on the deployer's Irodori if she has a voice there (`irodori`), counting towards nothing:
         404 without them; 503 with no key for speech synthesis, or her voice not configured;
         429 with no read-alouds left this hour; 502 if Fish Audio failed, with `code` "own_key" if on the user's own key,
         saying why."""
         if segments is None:
             raise HTTPException(404, "没有这句话")
+        character = characters[conversation.character_id]
+        if character.irodori_voice is not None and backend.irodori is not None:
+            try:
+                audio = await backend.irodori.voice(character.irodori_voice, segments)
+            except ReadAloudFailed as e:
+                return JSONResponse({"detail": str(e)}, status_code=502)
+            return Response(audio, media_type="audio/wav", headers={"Cache-Control": "no-store"})
         brought = brought_keys(backend, body.own_keys)
-        voice_id = characters[conversation.character_id].voice_id
+        voice_id = character.voice_id
         try:
             audio = await backend.read_aloud.voice(user_id, voice_id, segments, brought)
         except OwnKeyFailed as e:

@@ -1,6 +1,7 @@
 # 学园偶像大师：用户提供的 24 份人设，原文完整保存在 sheets/。
 # unknown 表示人设没有公开，不补造年龄、生日。
 # voice_id 留空，待配置对应角色的 Fish Audio 音色；不沿用闪耀色彩音色。
+# irodori_voice（可选）：她在部署者自建的 Irodori-TTS 上的音色名；后端配了 IRODORI_BASE_URL 时，她的朗读改用它。
 # color 是中性界面占位色，不声称为官方印象色。
 # liked_gifts 与 bar_* 是玩法的统一默认值，不作为原作事实写入人设或资料。
 
@@ -55,6 +56,7 @@ short_name = "琴音"
 name_zh = "藤田琴音"
 intro = "《学园偶像大师》中初星学园（初星学園）偶像科的藤田琴音（ふじた ことね），15 岁，从中等部直升上来的高等部一年级生，1年1班，和花海咲季、月村手毬同班。"
 voice_id = ""
+irodori_voice = "kotone"
 sheet = "sheets/kotone.md"
 facts = "sheets/kotone.md"
 avatar = "avatars/kotone.jpg"

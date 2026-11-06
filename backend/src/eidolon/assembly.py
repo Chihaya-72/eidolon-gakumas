@@ -80,6 +80,7 @@ from eidolon.letter_music import letter_music_path, load_letter_music
 from eidolon.letters import Letters
 from eidolon.moments import Moments
 from eidolon.reach_outs import ReachOuts
+from eidolon.irodori import IrodoriReadAloud
 from eidolon.read_aloud import ReadAloud
 from eidolon.readings import load_readings, readings_path
 from eidolon.recent_moments import RecentMoments
@@ -141,6 +142,8 @@ class Backend:
     own_keys: OwnKeys
     read_aloud: ReadAloud
     """Reads her words aloud as users ask (GLOSSARY.md「朗读」)."""
+    irodori: IrodoriReadAloud | None
+    """Reads aloud, instead, those with an Irodori voice; None without the server."""
     admissions: Admissions
     """Lets text turns and calls begin, and settles them."""
     accounts: Accounts
@@ -542,6 +545,10 @@ def build(
         speech=speech,
         own_keys=own_keys,
         read_aloud=read_aloud,
+        irodori=(
+            IrodoriReadAloud(settings.irodori, activity, readings)
+            if settings.irodori is not None else None
+        ),
         admissions=admissions,
         accounts=Accounts(
             store, clock, memories, calls, invites, lambda: config.registration,
