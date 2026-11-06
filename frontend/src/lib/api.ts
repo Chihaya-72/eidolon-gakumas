@@ -74,6 +74,9 @@ export type Character = {
    * server does not check that it was put there: when it fails to load, show her colour and name
    * instead. */
   voxels_url: string | null;
+  /** Her words are read aloud on the deployer's own speech server (Irodori), whoever's keys there are:
+   * long-pressing her bubble offers「朗读」even without a Fish Audio key. */
+  self_voiced: boolean;
 };
 
 /** A character's greeting (GLOSSARY.md「招呼」). */

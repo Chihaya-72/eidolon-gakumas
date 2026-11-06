@@ -214,6 +214,7 @@ class SttKey:
 
 DEFAULT_SILICONFLOW_BASE_URL = "https://api.siliconflow.cn/v1"
 DEFAULT_EMBEDDING_MODEL = "Qwen/Qwen3-Embedding-0.6B"
+DEFAULT_IRODORI_MODEL = "irodori-v4-large-int8"
 DEFAULT_RERANK_MODEL = "Qwen/Qwen3-Reranker-0.6B"
 """On the calibration set it ranks story and character facts better than 4B does."""
 
@@ -494,6 +495,9 @@ class Settings:
     fish_audio_model: FishAudioModel = DEFAULT_FISH_AUDIO_MODEL
     embedding: "EmbeddingSettings | None" = None
     rerank: "RerankSettings | None" = None
+    irodori: "IrodoriSettings | None" = None
+    """The deployer's own Irodori-TTS server, which reads aloud those characters who have an
+    `irodori_voice`; None without it."""
     qweather: "QWeatherSettings | None" = None
     """The deployer's QWeather account, for where the producer is; None without it."""
     image: "ImageSettings | None" = None
@@ -638,6 +642,7 @@ class Settings:
             fish_audio_model=fish_audio_model_from_env(),
             embedding=EmbeddingSettings.from_env(),
             rerank=RerankSettings.from_env(),
+            irodori=IrodoriSettings.from_env(),
             image=ImageSettings.from_env(),
             gpt_image=GptImageSettings.from_env(),
             qweather=QWeatherSettings.from_env(),
@@ -956,6 +961,33 @@ class RerankSettings:
             base_url=os.environ.get("SILICONFLOW_BASE_URL") or DEFAULT_SILICONFLOW_BASE_URL,
             min_relevance=_relevance("RERANK_MIN_RELEVANCE"),
             memory_min_relevance=_relevance("RERANK_MEMORY_MIN_RELEVANCE"),
+        )
+
+
+@dataclass(frozen=True)
+class IrodoriSettings:
+    """The deployer's own Irodori-TTS server (`irodori`), e.g. on a home GPU reached over a
+    private network such as Cloudflare Mesh: an OpenAI-style `/v1/audio/speech` answering WAV."""
+
+    base_url: str
+    """Up to `/v1`, without a trailing slash, e.g. `http://100.96.0.4:18086/v1`."""
+    api_key: str
+    model: str = DEFAULT_IRODORI_MODEL
+
+    @classmethod
+    def from_env(cls) -> "IrodoriSettings | None":
+        """None if `IRODORI_BASE_URL` is not set."""
+        base_url = (os.environ.get("IRODORI_BASE_URL") or "").strip().rstrip("/")
+        if not base_url:
+            return None
+        if not base_url.startswith(("http://", "https://")):
+            raise RuntimeError(
+                f"环境变量 IRODORI_BASE_URL 应以 http:// 或 https:// 开头，现在是 {base_url!r}"
+            )
+        return cls(
+            base_url=base_url,
+            api_key=_required("IRODORI_API_KEY"),
+            model=(os.environ.get("IRODORI_MODEL") or "").strip() or DEFAULT_IRODORI_MODEL,
         )
 
 

@@ -24,6 +24,7 @@ const mano: Character = {
   call_opener: null,
   call_poster_url: null,
   voxels_url: null,
+  self_voiced: false,
 };
 
 const memory = (source: string, superseded = false): Memory => ({
